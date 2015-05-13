@@ -1,0 +1,9 @@
+ca\queensu\cs\aggregate\Weka$WekaTrainSupportedArgs.class
+ca\queensu\cs\aggregate\Weka$WekaTrainUpdateable.class
+ca\queensu\cs\aggregate\WekaAttributesHolder.class
+ca\queensu\cs\aggregate\WekaUpdatableClassifierHolder.class
+ca\queensu\cs\aggregate\Weka$WekaTestUpdateable.class
+ca\queensu\cs\aggregate\ByteArrayOutputStreamHolder.class
+ca\queensu\cs\aggregate\Weka.class
+ca\queensu\cs\aggregate\Caster.class
+ca\queensu\cs\aggregate\BytesHolder.class
