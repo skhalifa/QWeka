@@ -40,6 +40,7 @@ import org.apache.drill.exec.store.dfs.easy.EasyGroupScan;
 import org.apache.drill.exec.store.dfs.easy.EasyWriter;
 import org.apache.drill.exec.store.dfs.easy.FileWork;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
+import org.apache.drill.exec.store.easy.json.JSONRecordReader;
 import org.apache.drill.exec.store.model.DrillModelReader;
 import org.apache.drill.exec.store.model.DrillModelWriter;
 import org.apache.drill.exec.store.text.DrillTextRecordReader;
@@ -67,13 +68,16 @@ public class ModelFormatPlugin extends EasyFormatPlugin<ModelFormatPlugin.ModelF
   @Override
   public RecordReader getRecordReader(FragmentContext context, DrillFileSystem dfs, FileWork fileWork,
       List<SchemaPath> columns) throws ExecutionSetupException {
-    Path path = dfs.makeQualified(new Path(fileWork.getPath()));
-    FileSplit split = new FileSplit(path, fileWork.getStart(), fileWork.getLength(), new String[]{""});
+//    Path path = dfs.makeQualified(new Path(fileWork.getPath()));
+//    FileSplit split = new FileSplit(path, fileWork.getStart(), fileWork.getLength(), new String[]{""});
 //    Preconditions.checkArgument(((ModelFormatConfig)formatConfig).getDelimiter().length() == 1, "Only single character delimiter supported");
 //    return new DrillModelReader(split, context, ((ModelFormatConfig) formatConfig).getDelimiter().charAt(0), columns);
-    return new DrillModelReader(split, context, columns);
+//    return new DrillModelReader(split, context, columns);
+    return new DrillModelReader(context, fileWork.getPath(), dfs, columns);
   }
 
+ 
+  
   @Override
   public AbstractGroupScan getGroupScan(FileSelection selection, List<SchemaPath> columns) throws IOException {
     return new EasyGroupScan(selection, this, columns, selection.selectionRoot); //TODO : textformat supports project?
