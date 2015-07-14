@@ -354,43 +354,60 @@ public class Weka {
 	public static class WekaTestUpdateable implements DrillSimpleFunc{
 
 
-		@Param  VarCharHolder operation;
-		@Param 	NullableVarCharHolder classifier;
-		@Param  VarCharHolder features;
+		@Param  NullableVarCharHolder operation;
+		@Param 	NullableVarCharHolder classifierTxt;
+//		@Param  NullableVarCharHolder features;
 		@Output Float8Holder out;
 		@Inject DrillBuf tempBuff;
-
+		@Workspace WekaUpdatableClassifierHolder classifier;
+		@Workspace String function;
 
 		public void setup(RecordBatch b) {
+			classifier = new WekaUpdatableClassifierHolder();
+			classifier.classifier=null;
 
 		}
 
 
 		public void eval() {
-			byte[] operationBuf = new byte[operation.end - operation.start];
-			operation.buffer.getBytes(operation.start, operationBuf, 0, operation.end - operation.start);
-			String function = new String(operationBuf, com.google.common.base.Charsets.UTF_8).toLowerCase();
-
-			byte[] temp = new byte[features.end - features.start];
-			features.buffer.getBytes(features.start, temp, 0, features.end - features.start);
-			String rowData = new String(temp, com.google.common.base.Charsets.UTF_8);
-			//			System.out.println("rowdata = "+rowData);
-
-			java.util.StringTokenizer st = new java.util.StringTokenizer(rowData, ",");
+			boolean firstRun = false;
+			if(function == null || function.length()==0){
+				byte[] operationBuf = new byte[operation.end - operation.start];
+				operation.buffer.getBytes(operation.start, operationBuf, 0, operation.end - operation.start);
+				function = new String(operationBuf, com.google.common.base.Charsets.UTF_8).toLowerCase();
+				firstRun = true;
+			}
 
 			if ("ibk".equals(function)){
 
-				byte[] classifierBuf = new byte[classifier.end - classifier.start];
-				classifier.buffer.getBytes(classifier.start, classifierBuf, 0, classifier.end - classifier.start);
+				if(firstRun)
+				{
+					try{
+						byte[] classifierBuf = new byte[classifierTxt.end - classifierTxt.start];
+						classifierTxt.buffer.getBytes(classifierTxt.start, classifierBuf, 0, classifierTxt.end - classifierTxt.start);
+						java.io.InputStream cis = new java.io.ByteArrayInputStream(classifierBuf);
+						System.out.println("loading classifier from disk");
+						
+						try {
+							classifier.classifier = (weka.classifiers.lazy.IBk) weka.core.SerializationHelper.read(cis);
+							System.out.println("read classifier:"+ classifier.classifier);
+						} catch (Exception e) {
+							System.out.println("Failed to read classifier");
+							e.printStackTrace(System.out);
+						}
+					}catch(Exception e){
+						e.printStackTrace(System.out);
+					}
+				}
+				
 
-				java.io.InputStream cis = new java.io.ByteArrayInputStream(classifierBuf);
+/*				try {
+					byte[] temp = new byte[features.end - features.start];
+					features.buffer.getBytes(features.start, temp, 0, features.end - features.start);
+					String rowData = new String(temp, com.google.common.base.Charsets.UTF_8);
+					//			System.out.println("rowdata = "+rowData);
 
-
-				try {
-					System.out.println("reading model");
-					weka.classifiers.lazy.IBk testIBk = (weka.classifiers.lazy.IBk) weka.core.SerializationHelper.read(cis);
-					System.out.println("read classifier:"+ testIBk);
-
+					java.util.StringTokenizer st = new java.util.StringTokenizer(rowData, ",");
 
 					int attributesCount = st.countTokens();
 					String arffHeader = "@"+"RELATION Drill\n";
@@ -414,11 +431,11 @@ public class Weka {
 					weka.core.Instances instances = new weka.core.Instances(datafile);
 					instances.setClassIndex(instances.numAttributes() - 1);
 
-					out.value = testIBk.classifyInstance(instances.instance(0));
+					out.value = classifier.classifier.classifyInstance(instances.instance(0));
 				}catch(Exception e)
 				{
 					e.printStackTrace();
-				}
+				}*/
 
 			}
 		}
