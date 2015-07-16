@@ -287,6 +287,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
 
   @Override
   protected boolean setupNewSchema() throws SchemaChangeException {
+	  logger.info("shadi: in schema change");
     if (allocationVectors != null) {
       for (ValueVector v : allocationVectors) {
         v.clear();

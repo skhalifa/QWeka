@@ -117,6 +117,7 @@ public class DrillSqlWorker {
 
   public PhysicalPlan getPlan(String sql, Pointer<String> textPlan) throws ForemanSetupException {
     SqlNode sqlNode;
+    logger.info("SQL textPlan= "+textPlan.value);
     try {
     	
     	String originalSql = sql;
@@ -130,6 +131,7 @@ public class DrillSqlWorker {
     		logger.info("qdmFunction= "+qdmFunction);
     		String functionName = qdmFunction.substring(0, qdmFunction.indexOf("("));
     		logger.info("functionName= "+functionName);
+    		//TODO: Fix bug when the string has commas inside a function like concat
     		StringTokenizer st = new StringTokenizer(qdmFunction.substring(qdmFunction.indexOf("(")+1), ",");
     		if(st.countTokens()<4){
     			sql = originalSql;
@@ -161,6 +163,7 @@ public class DrillSqlWorker {
     		logger.info("qdmFunction= "+qdmFunction);
     		String functionName = qdmFunction.substring(0, qdmFunction.indexOf("("));
     		logger.info("functionName= "+functionName);
+    		//TODO: Fix bug when the string has commas inside a function like concat
     		StringTokenizer st = new StringTokenizer(qdmFunction.substring(qdmFunction.indexOf("(")+1), ",");
     		if(st.countTokens()<4){
     			sql = originalSql;

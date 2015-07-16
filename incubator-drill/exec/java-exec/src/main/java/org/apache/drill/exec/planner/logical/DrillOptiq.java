@@ -376,7 +376,7 @@ public class DrillOptiq {
         }
 
         return first;
-        } else if (functionName.toLowerCase().startsWith("qdm_")) {
+        } /*else if (functionName.toLowerCase().startsWith("qdm_")) {
           // Cast arguments to VARCHAR
           List<LogicalExpression> qdmArgs = Lists.newArrayList();
           //First parameter is the opeation name
@@ -408,7 +408,7 @@ public class DrillOptiq {
           }
           LogicalExpression out = FunctionCallFactory.createExpression(functionName, qdmArgs);
           return out;
-        } else if (functionName.equals("length")) {
+        }*/ else if (functionName.equals("length")) {
 
           if (args.size() == 2) {
 
