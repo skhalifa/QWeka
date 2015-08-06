@@ -34,11 +34,14 @@ import org.eigenbase.relopt.RelOptUtil;
 import org.eigenbase.relopt.RelTraitSet;
 import org.eigenbase.rex.RexNode;
 
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
 // abstract base class for the join physical rules
 public abstract class JoinPruleBase extends Prule {
+	  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(JoinPruleBase.class);
+
 
   protected static enum PhysicalJoinType {HASH_JOIN, MERGE_JOIN};
 
@@ -47,8 +50,11 @@ public abstract class JoinPruleBase extends Prule {
   }
 
   protected boolean checkPreconditions(DrillJoinRel join, RelNode left, RelNode right) {
+	  
+	  
     if (join.getCondition().isAlwaysTrue()) {
       // this indicates a cartesian join which is not supported by existing rules
+    	logger.info("Shadi: cartesian join?"+join.getJoinType().name());
       return false;
     }
 
@@ -57,7 +63,8 @@ public abstract class JoinPruleBase extends Prule {
     RexNode remaining = RelOptUtil.splitJoinCondition(left, right, join.getCondition(), leftKeys, rightKeys);
     if (!remaining.isAlwaysTrue() && (leftKeys.size() == 0 || rightKeys.size() == 0)) {
       // this is a non-equijoin which is not supported by existing rules
-      return false;
+    	logger.info("Shadi: non-equijoin?"+join.getJoinType().name());
+    	return false;
     }
     return true;
   }
