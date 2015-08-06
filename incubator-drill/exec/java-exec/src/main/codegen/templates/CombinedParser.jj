@@ -4411,6 +4411,7 @@ SqlPostfixOperator PostfixRowOperator() :
     | < ALTER: "ALTER" >
     | < AND: "AND" >
     | < ANY: "ANY" >
+    | < APPLYING: "APPLYING" >
     | < ARE: "ARE" >
     | < ARRAY: "ARRAY" >
     | < AS: "AS" >
