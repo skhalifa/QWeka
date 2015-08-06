@@ -155,7 +155,7 @@
 	<classpathentry kind="lib" path="distribution/target/apache-drill-0.9-SNAPSHOT/apache-drill-0.9-SNAPSHOT/jars/3rdparty/netty-transport-native-epoll-4.0.24.Final-linux-x86_64.jar"/>
 	<classpathentry kind="lib" path="distribution/target/apache-drill-0.9-SNAPSHOT/apache-drill-0.9-SNAPSHOT/jars/3rdparty/objenesis-1.0.jar"/>
 	<classpathentry kind="lib" path="distribution/target/apache-drill-0.9-SNAPSHOT/apache-drill-0.9-SNAPSHOT/jars/3rdparty/optiq-avatica-0.9-drill-r20.jar"/>
-	<classpathentry kind="lib" path="distribution/target/apache-drill-0.9-SNAPSHOT/apache-drill-0.9-SNAPSHOT/jars/3rdparty/optiq-core-0.9-drill-r20.jar"/>
+	<classpathentry kind="lib" path="distribution/target/apache-drill-0.9-SNAPSHOT/apache-drill-0.9-SNAPSHOT/jars/3rdparty/optiq-core-0.9-drill-r20.jar" sourcepath="C:/Users/shadi/Desktop/optiq-core-0.9.0-incubating-sources.jar"/>
 	<classpathentry kind="lib" path="distribution/target/apache-drill-0.9-SNAPSHOT/apache-drill-0.9-SNAPSHOT/jars/3rdparty/paranamer-2.5.6.jar"/>
 	<classpathentry kind="lib" path="distribution/target/apache-drill-0.9-SNAPSHOT/apache-drill-0.9-SNAPSHOT/jars/3rdparty/parquet-column-1.5.1-drill-r6.jar"/>
 	<classpathentry kind="lib" path="distribution/target/apache-drill-0.9-SNAPSHOT/apache-drill-0.9-SNAPSHOT/jars/3rdparty/parquet-common-1.5.1-drill-r4.jar"/>
