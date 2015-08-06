@@ -22,6 +22,8 @@ import java.io.Reader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.StringTokenizer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import net.hydromatic.optiq.config.Lex;
 import net.hydromatic.optiq.tools.FrameworkConfig;
@@ -125,9 +127,28 @@ public class DrillSqlWorker {
     	if(sql.toLowerCase().contains("qdm_train")){
     		String newSqlBefore = sql.substring(0, sql.toLowerCase().indexOf("qdm_"));
     		logger.info("before qdmFunction= "+newSqlBefore);
-    		String newSqlAfter = sql.substring(sql.indexOf(")", sql.toLowerCase().indexOf("qdm_"))+1);
+    		
+    		int brackets=0;
+    		int i=sql.toLowerCase().indexOf("qdm_")+4;
+    		for(;i<sql.length();i++){
+    			if(sql.charAt(i)=='(')
+    				brackets++;
+    			else if(sql.charAt(i)==')'){
+    				brackets--;
+    			}
+    			
+    			if(brackets>1 && sql.charAt(i)==','){
+    				sql = sql.substring(0,i)+';'+sql.substring(i+1);
+    			}
+    			
+    			if(sql.charAt(i)==')' && brackets==0)
+    				break;
+    		}
+    		
+    		logger.info("Transition with ; insterted= "+sql);
+    		String newSqlAfter = sql.substring(i+1);
     		logger.info("after qdmFunction= "+newSqlAfter);
-    		String qdmFunction = sql.substring(sql.toLowerCase().indexOf("qdm_"), sql.indexOf(")", sql.toLowerCase().indexOf("qdm_"))+1);
+    		String qdmFunction = sql.substring(sql.toLowerCase().indexOf("qdm_"), i+1);
     		logger.info("qdmFunction= "+qdmFunction);
     		String functionName = qdmFunction.substring(0, qdmFunction.indexOf("("));
     		logger.info("functionName= "+functionName);
@@ -152,14 +173,34 @@ public class DrillSqlWorker {
 	    		concatString+=")";
 //	    		sql=newSqlBefore+functionName+"("+operation+","+args+","+modelName+","+(hasMoreAttribtues?concatString:firstAttribute)+newSqlAfter;
 	    		sql=newSqlBefore+functionName+"("+operation+","+args+","+(hasMoreAttribtues?concatString:firstAttribute)+newSqlAfter;
+	    		sql=sql.replace(';', ',');
     		}
     		logger.info("Final new train SQL statement= "+sql);
     	} else 	if(sql.toLowerCase().contains("qdm_test")){
     		String newSqlBefore = sql.substring(0, sql.toLowerCase().indexOf("qdm_"));
     		logger.info("before qdmFunction= "+newSqlBefore);
-    		String newSqlAfter = sql.substring(sql.indexOf(")", sql.toLowerCase().indexOf("qdm_"))+1);
+    		
+    		int brackets=0;
+    		int i=sql.toLowerCase().indexOf("qdm_")+4;
+    		for(;i<sql.length();i++){
+    			if(sql.charAt(i)=='(')
+    				brackets++;
+    			else if(sql.charAt(i)==')'){
+    				brackets--;
+    			}
+    			
+    			if(brackets>1 && sql.charAt(i)==','){
+    				sql = sql.substring(0,i)+';'+sql.substring(i+1);
+    			}
+    			
+    			if(sql.charAt(i)==')' && brackets==0)
+    				break;
+    		}
+    		
+    		logger.info("Transition with ; insterted= "+sql);
+    		String newSqlAfter = sql.substring(i+1);
     		logger.info("after qdmFunction= "+newSqlAfter);
-    		String qdmFunction = sql.substring(sql.toLowerCase().indexOf("qdm_"), sql.indexOf(")", sql.toLowerCase().indexOf("qdm_"))+1);
+    		String qdmFunction = sql.substring(sql.toLowerCase().indexOf("qdm_"), i+1);
     		logger.info("qdmFunction= "+qdmFunction);
     		String functionName = qdmFunction.substring(0, qdmFunction.indexOf("("));
     		logger.info("functionName= "+functionName);
@@ -169,10 +210,10 @@ public class DrillSqlWorker {
     			sql = originalSql;
     		} else {
     			String operation = st.nextToken();
-	    		String modelBytes = st.nextToken();
+	    		String args = st.nextToken();
 //	    		String modelName = st.nextToken();
 	    		logger.info("operation= "+operation);
-	    		logger.info("args= "+modelBytes);
+	    		logger.info("args= "+args);
 //	    		logger.info("modelName= "+modelName);
 	    		String firstAttribute = st.nextToken();
 	    		boolean hasMoreAttribtues = false;
@@ -183,10 +224,152 @@ public class DrillSqlWorker {
 	    		}
 	    		concatString+=")";
 //	    		sql=newSqlBefore+functionName+"("+operation+","+args+","+modelName+","+(hasMoreAttribtues?concatString:firstAttribute)+newSqlAfter;
-	    		sql=newSqlBefore+functionName+"("+operation+","+modelBytes+","+(hasMoreAttribtues?concatString:firstAttribute)+newSqlAfter;
+	    		sql=newSqlBefore+functionName+"("+operation+","+args+","+(hasMoreAttribtues?concatString:firstAttribute)+newSqlAfter;
+	    		sql=sql.replace(';', ',');
     		}
     		logger.info("Final new test SQL statement= "+sql);
     	}
+    	
+    	if(sql.toLowerCase().contains("applying")){
+    		Pattern pattern = Pattern.compile("from(.*?)applying");
+    		Matcher matcher = pattern.matcher(sql.toLowerCase());
+    		if (matcher.find())
+    		{
+    		    logger.info("Found applying statement:" + matcher.group(1));
+        		String newSqlBefore = sql.toLowerCase().substring(0, sql.toLowerCase().indexOf(matcher.group(1)));
+        		logger.info("before:" + newSqlBefore);
+        		
+        		String toParseString = sql.toLowerCase().substring(sql.toLowerCase().indexOf(matcher.group(1)));
+        		logger.info("parse string:" + toParseString);
+        		
+        		String firstArg = toParseString.substring(0,toParseString.indexOf("applying"));
+        		logger.info("firstArg:" + firstArg);
+        		
+        		StringTokenizer st = new StringTokenizer(firstArg," ");
+        		String a1="";
+        		int brackets=0;
+        		String token = st.nextToken();
+        		logger.info("token:" + token);
+        		if(!st.hasMoreTokens()){
+        			a1=token;
+    				logger.info("a1:" + a1);
+        		}else{
+	        		while(st.hasMoreTokens()){
+	        			token = st.nextToken();	        			
+	        			logger.info("token:" + token);
+	        			if(token.equalsIgnoreCase("("))
+	        				brackets++;
+	        			else if(token.equalsIgnoreCase(")"))
+	        				brackets--;
+	        			if(brackets==0 && token.equalsIgnoreCase("as")){
+	        				a1=st.nextToken();
+	        				logger.info("a1:" + a1);
+	        				break;
+	        			} 
+	        		}
+        		}
+        		
+        		firstArg = "(SELECT 1 as d1a381f3g74, * FROM "+firstArg+" ) AS "+a1;
+        		logger.info("firstArg modified:" + firstArg);
+        		
+        		
+        		String newSqlAfter =sql.toLowerCase().substring(sql.toLowerCase().indexOf("applying")+9);
+        		logger.info("newSqlAfter:" + newSqlAfter);
+        		
+        		st = new StringTokenizer(newSqlAfter," ");
+        		String secondArg="";
+        		String a2="";
+        		brackets=0;
+        		token = st.nextToken();
+        		logger.info("token:" + token);
+        		secondArg+=token+" ";
+        		if(!st.hasMoreTokens()){
+        			a2=token;
+    				logger.info("a2:" + a2);
+        		}else{
+	        		while(st.hasMoreTokens()){
+	        			token = st.nextToken();
+	        			logger.info("token:" + token);
+	        			secondArg+=token+" ";
+	        			if(token.equalsIgnoreCase("("))
+	        				brackets++;
+	        			else if(token.equalsIgnoreCase(")"))
+	        				brackets--;
+	        			if(brackets==0 && token.equalsIgnoreCase("as")){
+	        				a2=st.nextToken();
+	        				secondArg+=a2+" ";
+	        				logger.info("a2:" + a2);
+	        				break;
+	        			} 
+	        		}
+        		}
+        		logger.info("secondArg:" + secondArg);
+        		
+        		
+        		secondArg = "(SELECT 1 as d1a381f3g74, * FROM "+secondArg+" ) AS "+a2;
+        		logger.info("secondArg modified:" + secondArg);
+
+    			sql=newSqlBefore+" "+firstArg+
+        				" JOIN "+secondArg+ 
+        				" ON ("+a1+".d1a381f3g74="+a2+".d1a381f3g74)";
+    			while(st.hasMoreTokens()){
+    				sql+=" "+st.nextToken(); 
+    			}
+    		
+    		logger.info("final sql:" + sql);
+        		
+//        		
+//        		StringTokenizer st = new StringTokenizer(toParseString," ");
+//        	
+//        		
+//        			String ds1,ds2,alias1,alias2="";
+//            		String token = st.nextToken();
+//            		logger.info("token:" + token);
+//                	ds1=token;
+//                	logger.info("ds1:" + ds1);
+//                	token = st.nextToken();
+//                	logger.info("token:" + token);
+//                	if(token.equalsIgnoreCase("as")){
+//                		token = st.nextToken();
+//                		logger.info("token:" + token);
+//                		alias1 = token;
+//                		logger.info("alias1:" + alias1);
+//                		//skip allying token
+//                		token = st.nextToken();
+//                		logger.info("skip token:" + token);
+//                	} else {
+//                		alias1=ds1;
+//                		logger.info("alias1:" + alias1);
+//                	}
+//                	
+//                	token = st.nextToken();
+//            		logger.info("token:" + token);
+//            		ds2=token;
+//                	logger.info("ds2:" + ds2);
+//                	if(token.equalsIgnoreCase("as")){
+//                		token = st.nextToken();
+//                		logger.info("token:" + token);
+//                		alias2 = token;
+//                		logger.info("alias2:" + alias2);
+//                	} else {
+//                		alias2=ds2;
+//                		logger.info("alias2:" + alias2);
+//                	}
+//            		
+//            		
+//        			sql=newSqlBefore+" FROM "+"(SELECT 1 as d1, * FROM "+ds1+")"+" AS "+alias1+
+//            				" JOIN "+"(SELECT 1 as d1, * FROM "+ds2+")"+" AS "+alias2+ 
+//            				" ON ("+alias1+".d1="+alias2+".d1)";
+//        			while(st.hasMoreTokens()){
+//        				sql+=" "+st.nextToken(); 
+//        			}
+//        		
+//        		logger.info("final sql:" + sql);
+
+    		}
+    	
+    	}
+    	
       sqlNode = planner.parse(sql);
     } catch (SqlParseException e) {
       throw new QueryInputException("Failure parsing SQL. " + e.getMessage(), e);
