@@ -533,7 +533,7 @@ public class Weka {
 
 					int attributesCount = st.countTokens();
 					String arffHeader = "@"+"RELATION Drill\n";
-					for(int i=0; i< attributesCount-1;i++)
+					for(int i=0; i< attributesCount;i++)
 					{
 						arffHeader+="@"+"ATTRIBUTE att"+i+" numeric\n";
 					}
@@ -543,7 +543,7 @@ public class Weka {
 
 
 					// convert String into InputStream
-					java.io.InputStream is = new java.io.ByteArrayInputStream((arffHeader+rowData).getBytes("UTF-8"));
+					java.io.InputStream is = new java.io.ByteArrayInputStream((arffHeader+rowData+",0").getBytes("UTF-8"));
 
 					// read it with BufferedReader
 					java.io.BufferedReader datafile = new java.io.BufferedReader(new java.io.InputStreamReader(is));
