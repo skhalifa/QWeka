@@ -169,7 +169,7 @@ set DRILL_CP=%DRILL_CP%;%DRILL_HOME%\jars\3rdparty\*
 set DRILL_CP=%DRILL_CP%;%DRILL_HOME%\jars\classb\*
 if NOT "test%DRILL_CLASSPATH%"=="test" set DRILL_CP=!DRILL_CP!;%DRILL_CLASSPATH%
 
-set DRILL_SHELL_JAVA_OPTS=%DRILL_SHELL_JAVA_OPTS% -Dlog.path="%DRILL_LOG_DIR%\sqlline.log"
+set DRILL_SHELL_JAVA_OPTS=%DRILL_SHELL_JAVA_OPTS% -agentlib:jdwp=transport=dt_socket,server=y,address=21980,suspend=n -Dlog.path="%DRILL_LOG_DIR%\sqlline.log"
 
 SET JAVA_CMD=%JAVA_HOME%\bin\%JAVA_EXE%
 if "%JAVA_HOME%" == "" (set JAVA_CMD=%JAVA_EXE%)
