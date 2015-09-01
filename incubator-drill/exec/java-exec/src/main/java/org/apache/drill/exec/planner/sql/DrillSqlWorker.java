@@ -18,7 +18,6 @@
 package org.apache.drill.exec.planner.sql;
 
 import java.io.IOException;
-import java.io.Reader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.StringTokenizer;
@@ -57,11 +56,8 @@ import org.eigenbase.relopt.RelTraitDef;
 import org.eigenbase.relopt.hep.HepPlanner;
 import org.eigenbase.relopt.hep.HepProgramBuilder;
 import org.eigenbase.sql.SqlNode;
-import org.eigenbase.sql.advise.SqlSimpleParser.Tokenizer;
-import org.eigenbase.sql.parser.SqlAbstractParserImpl;
 import org.eigenbase.sql.parser.SqlParseException;
 import org.eigenbase.sql.parser.SqlParser;
-import org.eigenbase.sql.parser.SqlParserImplFactory;
 
 public class DrillSqlWorker {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DrillSqlWorker.class);
@@ -119,7 +115,7 @@ public class DrillSqlWorker {
 
   public PhysicalPlan getPlan(String sql, Pointer<String> textPlan) throws ForemanSetupException {
     SqlNode sqlNode;
-    logger.info("SQL textPlan= "+textPlan.value);
+    logger.info("SQL textPlan= "+textPlan.value); 
     try {
     	
     	String originalSql = sql;
@@ -233,13 +229,25 @@ public class DrillSqlWorker {
     	if(sql.toLowerCase().contains("applying")){
     		Pattern pattern = Pattern.compile("from(.*?)applying");
     		Matcher matcher = pattern.matcher(sql.toLowerCase());
-    		if (matcher.find())
+    		
+    		String match="";
+    		while(matcher.find()){
+    			match = matcher.group(1);
+    			logger.info("Loop Found applying statement:" + match);
+    			matcher = pattern.matcher(match+"applying");
+    			
+    		}
+    		
+    		if (match.length()>0)
     		{
-    		    logger.info("Found applying statement:" + matcher.group(1));
-        		String newSqlBefore = sql.toLowerCase().substring(0, sql.toLowerCase().indexOf(matcher.group(1)));
+    			logger.info("Found applying statement:" + match);
+    			
+    			
+    			String newSqlBefore = sql.toLowerCase().substring(0, sql.toLowerCase().indexOf(match));
+    			
         		logger.info("before:" + newSqlBefore);
         		
-        		String toParseString = sql.toLowerCase().substring(sql.toLowerCase().indexOf(matcher.group(1)));
+        		String toParseString = sql.toLowerCase().substring(sql.toLowerCase().indexOf(match));
         		logger.info("parse string:" + toParseString);
         		
         		String firstArg = toParseString.substring(0,toParseString.indexOf("applying"));
@@ -263,6 +271,7 @@ public class DrillSqlWorker {
 	        				brackets--;
 	        			if(brackets==0 && token.equalsIgnoreCase("as")){
 	        				a1=st.nextToken();
+	        				a1=a1.replace(")","");
 	        				logger.info("a1:" + a1);
 	        				break;
 	        			} 
@@ -283,6 +292,7 @@ public class DrillSqlWorker {
         		token = st.nextToken();
         		logger.info("token:" + token);
         		secondArg+=token+" ";
+        		boolean hasBracket=false;
         		if(!st.hasMoreTokens()){
         			a2=token;
     				logger.info("a2:" + a2);
@@ -297,7 +307,13 @@ public class DrillSqlWorker {
 	        				brackets--;
 	        			if(brackets==0 && token.equalsIgnoreCase("as")){
 	        				a2=st.nextToken();
+	        				if(a2.contains(")")){
+	        					a2=a2.replace(")","");
+		        				hasBracket=true;
+	        				} 
+
 	        				secondArg+=a2+" ";
+	        				
 	        				logger.info("a2:" + a2);
 	        				break;
 	        			} 
@@ -306,12 +322,12 @@ public class DrillSqlWorker {
         		logger.info("secondArg:" + secondArg);
         		
         		
-        		secondArg = "(SELECT 1 as d1a381f3g74, * FROM "+secondArg+" ) AS "+a2;
+        		secondArg = "(SELECT 1 as d1a381f3g73, * FROM "+secondArg+" ) AS "+a2;
         		logger.info("secondArg modified:" + secondArg);
 
     			sql=newSqlBefore+" "+firstArg+
         				" JOIN "+secondArg+ 
-        				" ON ("+a1+".d1a381f3g74="+a2+".d1a381f3g74)";
+        				" ON ("+a1+".d1a381f3g74="+a2+".d1a381f3g73)"+(hasBracket?")":"");
     			while(st.hasMoreTokens()){
     				sql+=" "+st.nextToken(); 
     			}
