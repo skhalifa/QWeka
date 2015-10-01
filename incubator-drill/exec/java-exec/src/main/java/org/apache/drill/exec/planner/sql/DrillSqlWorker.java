@@ -116,6 +116,7 @@ public class DrillSqlWorker {
   public PhysicalPlan getPlan(String sql, Pointer<String> textPlan) throws ForemanSetupException {
     SqlNode sqlNode;
     logger.info("SQL textPlan= "+textPlan.value); 
+    //TODO: preserve case 
     try {
     	
     	String originalSql = sql;
@@ -127,9 +128,9 @@ public class DrillSqlWorker {
     		int brackets=0;
     		int i=sql.toLowerCase().indexOf("qdm_")+4;
     		for(;i<sql.length();i++){
-    			if(sql.charAt(i)=='(')
+    			if(sql.charAt(i)=='('||sql.charAt(i)=='{'||sql.charAt(i)=='[')
     				brackets++;
-    			else if(sql.charAt(i)==')'){
+    			else if(sql.charAt(i)==')'||sql.charAt(i)=='}'||sql.charAt(i)==']'){
     				brackets--;
     			}
     			
@@ -179,9 +180,9 @@ public class DrillSqlWorker {
     		int brackets=0;
     		int i=sql.toLowerCase().indexOf("qdm_")+4;
     		for(;i<sql.length();i++){
-    			if(sql.charAt(i)=='(')
+    			if(sql.charAt(i)=='('||sql.charAt(i)=='{'||sql.charAt(i)=='[')
     				brackets++;
-    			else if(sql.charAt(i)==')'){
+    			else if(sql.charAt(i)==')'||sql.charAt(i)=='}'||sql.charAt(i)==']'){
     				brackets--;
     			}
     			
@@ -202,15 +203,15 @@ public class DrillSqlWorker {
     		logger.info("functionName= "+functionName);
     		//TODO: Fix bug when the string has commas inside a function like concat
     		StringTokenizer st = new StringTokenizer(qdmFunction.substring(qdmFunction.indexOf("(")+1), ",");
-    		if(st.countTokens()<4){
+    		if(st.countTokens()<5){
     			sql = originalSql;
     		} else {
     			String operation = st.nextToken();
 	    		String args = st.nextToken();
-//	    		String modelName = st.nextToken();
+	    		String model = st.nextToken();
 	    		logger.info("operation= "+operation);
 	    		logger.info("args= "+args);
-//	    		logger.info("modelName= "+modelName);
+//	    		logger.info("modelName= "+model);
 	    		String firstAttribute = st.nextToken();
 	    		boolean hasMoreAttribtues = false;
 	    		String concatString = "concat("+firstAttribute;
@@ -220,7 +221,7 @@ public class DrillSqlWorker {
 	    		}
 	    		concatString+=")";
 //	    		sql=newSqlBefore+functionName+"("+operation+","+args+","+modelName+","+(hasMoreAttribtues?concatString:firstAttribute)+newSqlAfter;
-	    		sql=newSqlBefore+functionName+"("+operation+","+args+","+(hasMoreAttribtues?concatString:firstAttribute)+newSqlAfter;
+	    		sql=newSqlBefore+functionName+"("+operation+","+args+","+model+","+(hasMoreAttribtues?concatString:firstAttribute)+newSqlAfter;
 	    		sql=sql.replace(';', ',');
     		}
     		logger.info("Final new test SQL statement= "+sql);
@@ -243,14 +244,14 @@ public class DrillSqlWorker {
     			logger.info("Found applying statement:" + match);
     			
     			
-    			String newSqlBefore = sql.toLowerCase().substring(0, sql.toLowerCase().indexOf(match));
+    			String newSqlBefore = sql.substring(0, sql.toLowerCase().indexOf(match));
     			
         		logger.info("before:" + newSqlBefore);
         		
-        		String toParseString = sql.toLowerCase().substring(sql.toLowerCase().indexOf(match));
+        		String toParseString = sql.substring(sql.toLowerCase().indexOf(match));
         		logger.info("parse string:" + toParseString);
         		
-        		String firstArg = toParseString.substring(0,toParseString.indexOf("applying"));
+        		String firstArg = toParseString.substring(0,toParseString.toLowerCase().indexOf("applying"));
         		logger.info("firstArg:" + firstArg);
         		
         		StringTokenizer st = new StringTokenizer(firstArg," ");
@@ -282,7 +283,7 @@ public class DrillSqlWorker {
         		logger.info("firstArg modified:" + firstArg);
         		
         		
-        		String newSqlAfter =sql.toLowerCase().substring(sql.toLowerCase().indexOf("applying")+9);
+        		String newSqlAfter =sql.substring(sql.toLowerCase().indexOf("applying")+9);
         		logger.info("newSqlAfter:" + newSqlAfter);
         		
         		st = new StringTokenizer(newSqlAfter," ");
