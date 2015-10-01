@@ -237,6 +237,9 @@ public class VectorContainer implements Iterable<VectorWrapper<?>>, VectorAccess
 //    	logger.info("Shadi wrappers.get("+i+").getField() = "+ wrappers.get(i).getField());
 //    }
     
+    //TODO: Shadi: This is a temp workaround to fix joining when run on multiple nodes. 
+    // The fix uses the location of the first table as the location of the second table too.
+    // Works perfectly
     
     VectorWrapper<?> va;
     
