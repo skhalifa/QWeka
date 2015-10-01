@@ -46,24 +46,24 @@ static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DrillPr
   protected DrillProjectRel(RelOptCluster cluster, RelTraitSet traits, RelNode child, List<RexNode> exps,
       RelDataType rowType) {
     super(DRILL_LOGICAL, cluster, traits, child, exps, rowType);
-logger.info("Shadi: DrillProjectRel, exps.size="+exps.size());
-for(int i=0; i< exps.size();i++)
-{
-logger.info("Shadi: DrillProjectRel, exps["+i+"]="+exps.get(i).toString());
-}
+//logger.info("Shadi: DrillProjectRel, exps.size="+exps.size());
+//for(int i=0; i< exps.size();i++)
+//{
+//logger.info("Shadi: DrillProjectRel, exps["+i+"]="+exps.get(i).toString());
+//}
   }
 
 
   @Override
   public ProjectRelBase copy(RelTraitSet traitSet, RelNode input, List<RexNode> exps, RelDataType rowType) {
-logger.info("Shadi: copy, input = "+input.getDescription());
+//logger.info("Shadi: copy, input = "+input.getDescription());
     return new DrillProjectRel(getCluster(), traitSet, input, exps, rowType);
   }
 
 
   @Override
   public LogicalOperator implement(DrillImplementor implementor) {
-logger.info("Shadi: implement ="+implementor.getContext().toString());
+//logger.info("Shadi: implement ="+implementor.getContext().toString());
     LogicalOperator inputOp = implementor.visitChild(this, 0, getChild());
     Project.Builder builder = Project.builder();
     builder.setInput(inputOp);
@@ -74,7 +74,7 @@ logger.info("Shadi: implement ="+implementor.getContext().toString());
   }
 
   public static DrillProjectRel convert(Project project, ConversionContext context) throws InvalidRelException{
-logger.info("Shadi: convert = "+project.toString());
+//logger.info("Shadi: convert = "+project.toString());
     RelNode input = context.toRel(project.getInput());
     List<RelDataTypeField> fields = Lists.newArrayList();
     List<RexNode> exps = Lists.newArrayList();

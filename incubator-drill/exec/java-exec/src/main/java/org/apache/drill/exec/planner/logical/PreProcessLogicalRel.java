@@ -80,29 +80,29 @@ public class PreProcessLogicalRel extends RelShuttleImpl {
 		this.factory = factory;
 		this.table = table;
 		this.unsupportedOperatorCollector = new UnsupportedOperatorCollector();
-		logger.info("Shadi: PreProcessLogicalRel");
+//		logger.info("Shadi: PreProcessLogicalRel");
 	}
 
 	@Override
 	public RelNode visit(AggregateRel aggregate) {
 		for(AggregateCall aggregateCall : aggregate.getAggCallList()) {
-			logger.info("Shadi: visit aggregate name= "+aggregateCall.getAggregation().getName());
+//			logger.info("Shadi: visit aggregate name= "+aggregateCall.getAggregation().getName());
 			if(aggregateCall.getAggregation() instanceof SqlSingleValueAggFunction) {
 				unsupportedOperatorCollector.setException(SqlUnsupportedException.ExceptionType.FUNCTION,
 						"1937", "Non-scalar sub-query used in an expression");
 				throw new UnsupportedOperationException();
 			}
-			logger.info("Shadi: visit aggregate : "+aggregate.toString());
-			logger.info("Shadi: visit aggregate call: "+aggregateCall.toString());
-			logger.info("Shadi: visit aggregate call.getAggregation: "+aggregateCall.getAggregation().toString());
-			logger.info("Shadi: visit aggregate child: "+aggregate.getChild().getChildExps().toString());
-			logger.info("Shadi: visit aggregate children size: "+aggregate.getChild().getChildExps().size());
-			for(int i =0;i<aggregate.getChild().getChildExps().size(); i++)
-			{
-				logger.info("Shadi: visit aggregate children: "+aggregate.getChild().getChildExps().get(i).toString());
-				logger.info("Shadi: visit aggregate children kind: "+aggregate.getChild().getChildExps().get(i).getKind().name());
-				logger.info("Shadi: visit aggregate children type: "+aggregate.getChild().getChildExps().get(i).getType().toString());
-			}
+//			logger.info("Shadi: visit aggregate : "+aggregate.toString());
+//			logger.info("Shadi: visit aggregate call: "+aggregateCall.toString());
+//			logger.info("Shadi: visit aggregate call.getAggregation: "+aggregateCall.getAggregation().toString());
+//			logger.info("Shadi: visit aggregate child: "+aggregate.getChild().getChildExps().toString());
+//			logger.info("Shadi: visit aggregate children size: "+aggregate.getChild().getChildExps().size());
+//			for(int i =0;i<aggregate.getChild().getChildExps().size(); i++)
+//			{
+//				logger.info("Shadi: visit aggregate children: "+aggregate.getChild().getChildExps().get(i).toString());
+//				logger.info("Shadi: visit aggregate children kind: "+aggregate.getChild().getChildExps().get(i).getKind().name());
+//				logger.info("Shadi: visit aggregate children type: "+aggregate.getChild().getChildExps().get(i).getType().toString());
+//			}
 //			int nArgs = aggregate.getChild().getChildExps().size();
 //			logger.info("Shadi: visit In my if condition: "+aggregateCall.getAggregation().getName());
 //			if (aggregateCall.getAggregation().getName().toLowerCase().startsWith("qdm_") && nArgs>2) {
@@ -134,7 +134,7 @@ public class PreProcessLogicalRel extends RelShuttleImpl {
 	public RelNode visit(ProjectRel project) {
 		List<RexNode> exprList = new ArrayList<>();
 		boolean rewrite = false;
-		logger.info("Shadi: visit project : "+project.toString());
+//		logger.info("Shadi: visit project : "+project.toString());
 	
 		//if (project.getChildExps()!=null && project.getChildExps().size()>0 && project.getChildExps().get(0) instanceof RexCall) 
 //		{
@@ -170,7 +170,7 @@ public class PreProcessLogicalRel extends RelShuttleImpl {
 //			}
 //		}
 		for (RexNode rex : project.getChildExps()) {
-			logger.info("Shadi: visit expr = "+rex.toString());
+//			logger.info("Shadi: visit expr = "+rex.toString());
 			RexNode newExpr = rex;
 			if (rex instanceof RexCall) {
 				RexCall function = (RexCall) rex;
