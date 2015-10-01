@@ -29,6 +29,13 @@
           extensions: [ "tsv" ],
           delimiter: "\t"
         },
+        "model": {
+			"type": "model",
+			"extensions": [
+	        "model"
+			],
+			"delimiter": ""
+		},
         "parquet" : {
           type: "parquet"
         },
@@ -38,6 +45,51 @@
       }
     },
 
+    hdfs: {
+      type: "file",
+      connection: "hdfs://<ip>:8020",
+      workspaces: {
+        "root" : {
+          location: "/",
+          writable: false
+        },
+        "tmp" : {
+          location: "/tmp",
+          writable: true
+        }
+      },
+      formats: {
+        "psv" : {
+          type: "text",
+          extensions: [ "tbl" ],
+          delimiter: "|"
+        },
+        "csv" : {
+          type: "text",
+          extensions: [ "csv" ],
+          delimiter: ","
+        },
+        "tsv" : {
+          type: "text",
+          extensions: [ "tsv" ],
+          delimiter: "\t"
+        },
+        "model": {
+			"type": "model",
+			"extensions": [
+	        "model"
+			],
+			"delimiter": ""
+		},
+        "parquet" : {
+          type: "parquet"
+        },
+        "json" : {
+          type: "json"
+        }
+      }
+    },
+    
     cp: {
       type: "file",
       connection: "classpath:///",
