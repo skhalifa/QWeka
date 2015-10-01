@@ -54,7 +54,7 @@ public abstract class JoinPruleBase extends Prule {
 	  
     if (join.getCondition().isAlwaysTrue()) {
       // this indicates a cartesian join which is not supported by existing rules
-    	logger.info("Shadi: cartesian join?"+join.getJoinType().name());
+//    	logger.info("Shadi: cartesian join?"+join.getJoinType().name());
       return false;
     }
 
@@ -63,7 +63,7 @@ public abstract class JoinPruleBase extends Prule {
     RexNode remaining = RelOptUtil.splitJoinCondition(left, right, join.getCondition(), leftKeys, rightKeys);
     if (!remaining.isAlwaysTrue() && (leftKeys.size() == 0 || rightKeys.size() == 0)) {
       // this is a non-equijoin which is not supported by existing rules
-    	logger.info("Shadi: non-equijoin?"+join.getJoinType().name());
+//    	logger.info("Shadi: non-equijoin?"+join.getJoinType().name());
     	return false;
     }
     return true;
