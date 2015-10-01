@@ -84,7 +84,7 @@ public class DrillModelReader extends AbstractRecordReader {
 			//      } else {
 			InputStream fis = fileSystem.open(hadoopPath);
 			this.stream = new BufferedInputStream(fis); 
-			logger.info("shadi: hadooppath: "+hadoopPath);
+//			logger.info("shadi: hadooppath: "+hadoopPath);
 			//      }
 
 			this.writer = new VectorContainerWriter(output);
@@ -130,7 +130,7 @@ public class DrillModelReader extends AbstractRecordReader {
 
 			stream.read(outbuff, 0, outbuff.length);
 
-			logger.info("Shadi: outbuff = "+ new String(outbuff, com.google.common.base.Charsets.UTF_8));
+//			logger.info("Shadi: outbuff = "+ new String(outbuff, com.google.common.base.Charsets.UTF_8));
 			vector.getMutator().startNewGroup(0);
 			vector.getMutator().addSafe(0, outbuff);
 			vector.getMutator().setValueCount(1);
