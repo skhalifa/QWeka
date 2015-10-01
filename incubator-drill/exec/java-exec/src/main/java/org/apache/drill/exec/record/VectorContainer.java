@@ -229,7 +229,24 @@ public class VectorContainer implements Iterable<VectorWrapper<?>>, VectorAccess
   @Override
   public VectorWrapper<?> getValueAccessorById(Class<?> clazz, int... fieldIds) {
     Preconditions.checkArgument(fieldIds.length >= 1);
-    VectorWrapper<?> va = wrappers.get(fieldIds[0]);
+//    logger.info("Shadi fieldIds.length ="+fieldIds.length );
+//    logger.info("Shadi wrappers.size() ="+wrappers.size() );
+//    logger.info("Shadi accessing wrappers("+fieldIds[0]+")" );
+//    
+//    for(int i=0;i<wrappers.size();i++){
+//    	logger.info("Shadi wrappers.get("+i+").getField() = "+ wrappers.get(i).getField());
+//    }
+    
+    
+    VectorWrapper<?> va;
+    
+    if(fieldIds[0] < wrappers.size()){
+    	va = wrappers.get(fieldIds[0]);
+    } else {
+    	va = wrappers.get((fieldIds[0]%wrappers.size())+2);
+    }
+    
+  
 
     if (va == null) {
       return null;
