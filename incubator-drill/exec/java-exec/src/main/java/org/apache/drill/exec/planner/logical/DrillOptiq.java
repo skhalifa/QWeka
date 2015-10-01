@@ -66,7 +66,7 @@ public class DrillOptiq {
    * Converts a tree of {@link RexNode} operators into a scalar expression in Drill syntax.
    */
   public static LogicalExpression toDrill(DrillParseContext context, RelNode input, RexNode expr) {
-    logger.info("Shadi: toDrill");
+//    logger.info("Shadi: toDrill");
     final RexToDrill visitor = new RexToDrill(context, input);
     return expr.accept(visitor);
   }
@@ -77,14 +77,14 @@ public class DrillOptiq {
 
     RexToDrill(DrillParseContext context, RelNode input) {
       super(true);
-      logger.info("Shadi: RexToDrill");
+//      logger.info("Shadi: RexToDrill");
       this.context = context;
       this.input = input;
     }
 
     @Override
     public LogicalExpression visitInputRef(RexInputRef inputRef) {
-      logger.info("Shadi: visitInputRef");
+//      logger.info("Shadi: visitInputRef");
       final int index = inputRef.getIndex();
       final RelDataTypeField field = input.getRowType().getFieldList().get(index);
       return FieldReference.getWithQuotedRef(field.getName());
@@ -94,12 +94,12 @@ public class DrillOptiq {
     public LogicalExpression visitCall(RexCall call) {
 //      logger.debug("RexCall {}, {}", call);
       final SqlSyntax syntax = call.getOperator().getSyntax();
-      logger.info("Shadi: Function name:"+call.getOperator().getName().toLowerCase());
-      logger.info("Shadi: Syntax name:"+syntax.name());
-      logger.info("Shadi: Syntax name:"+syntax.toString());
+//      logger.info("Shadi: Function name:"+call.getOperator().getName().toLowerCase());
+//      logger.info("Shadi: Syntax name:"+syntax.name());
+//      logger.info("Shadi: Syntax name:"+syntax.toString());
       switch (syntax) {
       case BINARY:
-        logger.debug("Binary");
+//        logger.debug("Binary");
         final String funcName = call.getOperator().getName().toLowerCase();
         List<LogicalExpression> args = Lists.newArrayList();
         for(RexNode r : call.getOperands()){
@@ -120,10 +120,10 @@ public class DrillOptiq {
         }
       case FUNCTION:
       case FUNCTION_ID:
-        logger.debug("Function");
+//        logger.debug("Function");
         return getDrillFunctionFromOptiqCall(call);
       case POSTFIX:
-        logger.debug("Postfix");
+//        logger.debug("Postfix");
         switch(call.getKind()){
         case IS_NOT_NULL:
         case IS_NOT_TRUE:
@@ -137,7 +137,7 @@ public class DrillOptiq {
         }
         throw new AssertionError("todo: implement syntax " + syntax + "(" + call + ")");
       case PREFIX:
-        logger.debug("Prefix");
+//        logger.debug("Prefix");
         LogicalExpression arg = call.getOperands().get(0).accept(this);
         switch(call.getKind()){
         case NOT:
@@ -146,7 +146,7 @@ public class DrillOptiq {
         }
         throw new AssertionError("todo: implement syntax " + syntax + "(" + call + ")");
       case SPECIAL:
-        logger.debug("Special");
+//        logger.debug("Special");
         switch(call.getKind()){
         case CAST:
           return getDrillCastFunctionFromOptiq(call);
@@ -207,43 +207,43 @@ public class DrillOptiq {
     }
     @Override
     public LogicalExpression visitLocalRef(RexLocalRef localRef) {
-    logger.info("Shadi: visitLocalRef");
+//    logger.info("Shadi: visitLocalRef");
       return doUnknown(localRef);
     }
 
     @Override
     public LogicalExpression visitOver(RexOver over) {
-    logger.info("Shadi: visitOver");
+//    logger.info("Shadi: visitOver");
       return doUnknown(over);
     }
 
     @Override
     public LogicalExpression visitCorrelVariable(RexCorrelVariable correlVariable) {
-    logger.info("Shadi: visitCorrelVariable");
+//    logger.info("Shadi: visitCorrelVariable");
       return doUnknown(correlVariable);
     }
 
     @Override
     public LogicalExpression visitDynamicParam(RexDynamicParam dynamicParam) {
-    logger.info("Shadi: visitDynamicParam");
+//    logger.info("Shadi: visitDynamicParam");
       return doUnknown(dynamicParam);
     }
 
     @Override
     public LogicalExpression visitRangeRef(RexRangeRef rangeRef) {
-    logger.info("Shadi: visitRangeRef");
+//    logger.info("Shadi: visitRangeRef");
       return doUnknown(rangeRef);
     }
 
     @Override
     public LogicalExpression visitFieldAccess(RexFieldAccess fieldAccess) {
-    logger.info("Shadi: visitFieldAccess");
+//    logger.info("Shadi: visitFieldAccess");
       return super.visitFieldAccess(fieldAccess);
     }
 
 
     private LogicalExpression getDrillCastFunctionFromOptiq(RexCall call){
-    logger.info("Shadi: getDrillCastFunctionFromOptiq");
+//    logger.info("Shadi: getDrillCastFunctionFromOptiq");
       LogicalExpression arg = call.getOperands().get(0).accept(this);
       MajorType castType = null;
 
@@ -285,7 +285,7 @@ public class DrillOptiq {
     }
 
     private LogicalExpression getDrillFunctionFromOptiqCall(RexCall call) {
-    logger.info("Shadi: getDrillFunctionFromOptiqCall");
+//    logger.info("Shadi: getDrillFunctionFromOptiqCall");
       List<LogicalExpression> args = Lists.newArrayList();
       for(RexNode n : call.getOperands()){
         args.add(n.accept(this));
@@ -437,7 +437,7 @@ public class DrillOptiq {
 
     @Override
     public LogicalExpression visitLiteral(RexLiteral literal) {
-    logger.info("Shadi: visitLiteral");
+//    logger.info("Shadi: visitLiteral");
       switch(literal.getType().getSqlTypeName()){
       case BIGINT:
         if (isLiteralNull(literal)) {
@@ -542,12 +542,12 @@ public class DrillOptiq {
   }
 
   private static final TypedNullConstant createNullExpr(MinorType type) {
-logger.info("Shadi: createNullExpr");
+//logger.info("Shadi: createNullExpr");
     return new TypedNullConstant(Types.optional(type));
   }
 
   private static boolean isLiteralNull(RexLiteral literal) {
-logger.info("Shadi: isLiteralNull");
+//logger.info("Shadi: isLiteralNull");
     return literal.getTypeName().getName().equals("NULL");
   }
 }
