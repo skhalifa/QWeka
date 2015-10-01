@@ -310,7 +310,7 @@ public class WorkspaceSchemaFactory implements ExpandingConcurrentMap.MapValueFa
     public CreateTableEntry trainNewModel(String modelName) {
       String storage = session.getOptions().getOption(ExecConstants.OUTPUT_FORMAT_OPTION).string_val;
 //      System.out.println("Shadi: Sotrage="+storage);
-      logger.info("Shadi: Storage="+storage);
+//      logger.info("Shadi: Storage="+storage);
       FormatPlugin formatPlugin = plugin.getFormatPlugin(storage);
       if (formatPlugin == null) {
         throw new UnsupportedOperationException(
