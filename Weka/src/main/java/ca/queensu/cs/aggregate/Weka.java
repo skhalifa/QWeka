@@ -1,8 +1,10 @@
 package ca.queensu.cs.aggregate;
 
+
 import io.netty.buffer.DrillBuf;
 
 import javax.inject.Inject;
+
 
 import org.apache.drill.exec.expr.DrillAggFunc;
 import org.apache.drill.exec.expr.DrillSimpleFunc;
@@ -67,7 +69,9 @@ public class Weka {
 
 			if ("?".equals(function)){
 				function = "qdm_weka_train(\'IBk\',arguments,comma-separated features (label is the last column))\n\r";
-				function += "Type qdm_weka_train(\'IBk\') for IBk help";
+				function += "Type qdm_weka_train(\'IBk\') for IBk help\n\r\n\r";
+				function += "qdm_weka_train(\'nb\',arguments,comma-separated features (label is the last column))\n\r";
+				function += "Type qdm_weka_train(\'nb\') for Naive Bayes help";
 			} else if ("ibk".equals(function)){
 				weka.classifiers.lazy.IBk temp = new weka.classifiers.lazy.IBk();
 				function+=":"+temp.globalInfo()+"\n\r";
@@ -76,6 +80,17 @@ public class Weka {
 					weka.core.Option tmp = ((weka.core.Option)e.nextElement());
 					function+=tmp.name()+" : "+tmp.description()+"\n\r";
 				}
+				function+="-classes {c1,c2,c3}"+" : "+"List possible classes for the dataset. If not specified class becomes NUMERIC"+"\n\r";
+
+			} else if ("nb".equals(function)){
+				weka.classifiers.bayes.NaiveBayesUpdateable temp = new weka.classifiers.bayes.NaiveBayesUpdateable();
+				function+=":"+temp.globalInfo()+"\n\r";
+
+				for ( java.util.Enumeration<weka.core.Option> e = (java.util.Enumeration<weka.core.Option>)temp.listOptions(); e.hasMoreElements();){
+					weka.core.Option tmp = ((weka.core.Option)e.nextElement());
+					function+=tmp.name()+" : "+tmp.description()+"\n\r";
+				}
+				function+="-classes {c1,c2,c3}"+" : "+"List possible classes for the dataset. If not specified class becomes NUMERIC"+"\n\r";
 
 			} else{
 				function+=":"+"No Args";
@@ -86,7 +101,7 @@ public class Weka {
 			out.buffer.setBytes(0,function.getBytes(com.google.common.base.Charsets.UTF_8));
 			out.start=0;
 			out.end=function.length();
-			System.out.println(function);
+			//			System.out.println(function);
 
 		}
 
@@ -158,139 +173,112 @@ public class Weka {
 
 			java.util.StringTokenizer st = new java.util.StringTokenizer(rowData, ",");
 
-			if ("ibk".equals(function)){
-				int attributesCount = st.countTokens();
-				String arffHeader = "@"+"RELATION Drill\n";
-				for(int i=0; i< attributesCount-1;i++)
-				{
-					arffHeader+="@"+"ATTRIBUTE att"+i+" numeric\n";
+
+			int attributesCount = st.countTokens();
+			String arffHeader = "@"+"RELATION Drill\n";
+			for(int i=0; i< attributesCount-1;i++)
+			{
+				arffHeader+="@"+"ATTRIBUTE att"+i+" numeric\n";
+			}
+			
+			byte[] argsBuf = new byte[arguments.end - arguments.start];
+			arguments.buffer.getBytes(arguments.start, argsBuf, 0, arguments.end - arguments.start);
+			
+			String classType = "numeric";
+			String[] options = null;
+			try {
+				options = weka.core.Utils.splitOptions((new String(argsBuf, com.google.common.base.Charsets.UTF_8)));
+				for(int i=0;i<options.length;i++){
+//					System.out.println("option"+i+":"+options[i]);
+					if(options[i].indexOf("classes")>0){
+						classType = options[i+1];
+//						System.out.println("class type:"+classType);
+						options[i]="";
+						options[i+1]="";
+					}
 				}
-				arffHeader+="@"+"ATTRIBUTE class numeric\n";
-				arffHeader+="@"+"DATA\n";
-				//System.out.println((arffHeader+rowData));
+				
+			} catch (Exception e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+			
+			arffHeader+="@"+"ATTRIBUTE class "+classType+"\n";
+			arffHeader+="@"+"DATA\n";
+//			System.out.println((arffHeader+rowData));
 
-				try {
-					// convert String into InputStream
-					java.io.InputStream is = new java.io.ByteArrayInputStream((arffHeader+rowData).getBytes("UTF-8"));
+			try {
+				// convert String into InputStream
+				java.io.InputStream is = new java.io.ByteArrayInputStream((arffHeader+rowData).getBytes("UTF-8"));
 
-					// read it with BufferedReader
-					java.io.BufferedReader datafile = new java.io.BufferedReader(new java.io.InputStreamReader(is));
+				// read it with BufferedReader
+				java.io.BufferedReader datafile = new java.io.BufferedReader(new java.io.InputStreamReader(is));
 
 
 
-					weka.core.Instances instances = new weka.core.Instances(datafile);
-					instances.setClassIndex(instances.numAttributes() - 1);
+				weka.core.Instances instances = new weka.core.Instances(datafile);
+				instances.setClassIndex(instances.numAttributes() - 1);
 
-					//					System.out.println("Instances = " + instances);
+				//					System.out.println("Instances = " + instances);
+				if ("ibk".equals(function)){
 					try{
 
-						// train NaiveBayes
+						// train KNN
 						((weka.classifiers.lazy.IBk)classifier.classifier).updateClassifier(instances.instance(0));
 						//						System.out.println("Update classifier = "+classifier.classifier.toString()+" using:"+((weka.classifiers.lazy.IBk)classifier.classifier).getNumTraining());
 
 
 					}catch(Exception ex){
-						System.out.println("ex1="+ex.getMessage());
+						//						System.out.println("ex1="+ex.getMessage());
 						try{
 							classifier.classifier = new weka.classifiers.lazy.IBk();
 
-							byte[] argsBuf = new byte[arguments.end - arguments.start];
-							arguments.buffer.getBytes(arguments.start, argsBuf, 0, arguments.end - arguments.start);
-							((weka.classifiers.lazy.IBk)classifier.classifier).setOptions(weka.core.Utils.splitOptions((new String(argsBuf, com.google.common.base.Charsets.UTF_8))));
-							System.out.println("options: "+((weka.classifiers.lazy.IBk)classifier.classifier).getOptions());
+							
+							((weka.classifiers.lazy.IBk)classifier.classifier).setOptions(options);
+							//							System.out.println("options: "+((weka.classifiers.lazy.IBk)classifier.classifier).getOptions());
 							classifier.classifier.buildClassifier(instances);
-							System.out.println("New classifier = "+classifier.classifier);
+							//							System.out.println("New classifier = "+classifier.classifier);
 							//						ibk.updateClassifier(instances.instance(0));
 						}catch(Exception e){
-							System.out.println("ex2="+e.getMessage()); 
+							//							System.out.println("ex2="+e.getMessage()); 
+							e.printStackTrace();
 						}
 					}
+				} else if ("nb".equals(function)){
+					try{
 
-				} catch (Exception e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
+						// train NaiveBayes
+						((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).updateClassifier(instances.instance(0));
+						//						System.out.println("Update classifier = "+classifier.classifier.toString()+" using:"+((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).getNumTraining());
+
+
+					}catch(Exception ex){
+						//						System.out.println("ex1="+ex.getMessage());
+						try{
+							classifier.classifier = new weka.classifiers.bayes.NaiveBayesUpdateable();
+
+							((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).setOptions(options);
+							//							System.out.println("options: "+((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).getOptions());
+							classifier.classifier.buildClassifier(instances);
+							//							System.out.println("New classifier = "+classifier.classifier);
+							//						ibk.updateClassifier(instances.instance(0));
+						}catch(Exception e){
+							//							System.out.println("ex2="+e.getMessage()); 
+							e.printStackTrace();
+						}
+					}
+				} 
+
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
 
-
-
-			//			} else if ("naivebayes".equals(function)) 
-			//			{
-			//
-			//				int attributesCount = st.countTokens();
-			//				//				if(attributes.attributes.size() == 0){
-			//				//					attributes.attributes = new weka.core.FastVector(attributesCount);
-			//				//				}
-			//				weka.core.FastVector atts = new weka.core.FastVector(attributesCount);
-			//				double[] values = new double[attributesCount];
-			//
-			//				for(int i=0; i< attributesCount;i++)
-			//				{
-			//					String nextToken = st.nextToken();
-			//
-			//					//					Enumeration vals = ((weka.core.Attribute)attributes.attributes.elementAt(i)).;
-			//					//					vals.
-			//
-			//					weka.core.FastVector my_nominal_values = new weka.core.FastVector(2); 
-			//					my_nominal_values.addElement("dummy"); 
-			//					my_nominal_values.addElement(nextToken); 
-			//					atts.addElement(new weka.core.Attribute("att"+i,my_nominal_values));
-			//					values[i]=1;
-			//					//					 System.out.println("atts:"+atts);
-			//
-			//					//							if(((weka.core.Attribute)atts.elementAt(i)).isNumeric()){
-			//					//								weka.filters.unsupervised.attribute.NumericToNominal convertNumeric= new weka.filters.unsupervised.attribute.NumericToNominal();
-			//					//								String[] options= new String[2];
-			//					//								options[0]="-R";
-			//					//								options[1]=(i+1)+"-"+(i+1); //range of variables to make numeric
-			//					//								convertNumeric.setOptions(options);
-			//					//								convertNumeric.setInputFormat(instances);
-			//					//								instances = weka.filters.Filter.useFilter(instances, convertNumeric);
-			//					//							}
-			//
-			//
-			//				}
-			//
-			//				weka.core.Instances instances = new weka.core.Instances("Instances",atts,0);
-			//				//				weka.core.Instance instance = new weka.core.Instance(instances.numAttributes());
-			//
-			//				try {
-			//					instances.add(new weka.core.Instance(1.0, values));
-			//				} catch (Exception e1) {
-			//					// TODO Auto-generated catch block
-			//					e1.printStackTrace();
-			//					System.out.println(e1.getMessage());
-			//
-			//				}
-			//
-			//
-			//
-			//				instances.setClassIndex(instances.numAttributes()-1);//-label.value);
-			//
-			//
-			//				System.out.println("Instances = " + instances);
-			//				try{
-			//
-			//					// train NaiveBayes
-			//					((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).updateClassifier(instances.firstInstance());
-			//					System.out.println("Update classifier = "+((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier));
-			//				}catch(Exception ex){
-			//					System.out.println("ex1="+ex.getMessage());
-			//					try{
-			//						classifier.classifier = new weka.classifiers.bayes.NaiveBayesUpdateable();
-			//						((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).buildClassifier(instances);
-			//						System.out.println("New classifier = "+((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier));
-			//						((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).updateClassifier(instances.firstInstance());
-			//					}catch(Exception e){
-			//						System.out.println("ex2="+e.getMessage()); 
-			//					}
-			//				}
-			//			} 
 
 		}
 		@Override
 		public void output() {
-			System.out.println("In out of main function");
+			//			System.out.println("In out of main function");
 			//			
 			//			byte[] modelNameBuf = new byte[modelNameStringLength.value];
 			//			modelNameHolder.buffer.getBytes(0, modelNameBuf, 0, modelNameStringLength.value);
@@ -301,35 +289,36 @@ public class Weka {
 				//				weka.core.SerializationHelper.write(modelName, ((weka.classifiers.lazy.IBk)classifier.classifier));
 				java.io.ByteArrayOutputStream os = new java.io.ByteArrayOutputStream();
 
-				weka.classifiers.lazy.IBk orgIBk = ((weka.classifiers.lazy.IBk)classifier.classifier);
+//				weka.classifiers.lazy.IBk orgIBk = ((weka.classifiers.lazy.IBk)classifier.classifier);
 
-				System.out.println("write classifier:"+ orgIBk);
-				
-				weka.core.SerializationHelper.write(os, orgIBk);
-				String modelString = new String(os.toByteArray(),com.google.common.base.Charsets.UTF_8);
+				//				System.out.println("write classifier:"+ orgIBk);
+
+//				weka.core.SerializationHelper.write(os, orgIBk);
+				weka.core.SerializationHelper.write(os, classifier.classifier);
+				//				String modelString = new String(os.toByteArray(),com.google.common.base.Charsets.UTF_8);
 				//				System.out.println(modelString);
 				out.buffer = tempBuff;
-			
+
 				//String output = "The "+modelName+" model was successfully created.\n";
 				//byte[] outbuff = (os.toString(com.google.common.base.Charsets.UTF_8).getBytes(com.google.common.base.Charsets.UTF_8));
 				out.buffer = out.buffer.reallocIfNeeded(os.toByteArray().length);
 				out.buffer.setBytes(0, os.toByteArray());//.setBytes(0,outbuff);
 				out.start=0;
 				out.end=os.toByteArray().length;
-				
-				byte[] outbuff = new byte[os.toByteArray().length];
-				out.buffer.getBytes(0, outbuff);
-				
-				java.io.InputStream is = new java.io.ByteArrayInputStream(outbuff);
 
-				System.out.println("reading model");
-				weka.classifiers.lazy.IBk testIBk = (weka.classifiers.lazy.IBk) weka.core.SerializationHelper.read(is);
-				System.out.println("read classifier:"+ testIBk);
+				//				byte[] outbuff = new byte[os.toByteArray().length];
+				//				out.buffer.getBytes(0, outbuff);
+
+				//				java.io.InputStream is = new java.io.ByteArrayInputStream(outbuff);
+
+				//				System.out.println("reading model");
+				//				weka.classifiers.lazy.IBk testIBk = (weka.classifiers.lazy.IBk) weka.core.SerializationHelper.read(is);
+				//				System.out.println("read classifier:"+ testIBk);
 
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
-				System.out.println("error:"+e.getLocalizedMessage());
+				//				System.out.println("error:"+e.getLocalizedMessage());
 			}
 			//
 			//			out.start = 0;
@@ -349,137 +338,14 @@ public class Weka {
 	}
 
 
-//	@FunctionTemplate(name = "test_weka", scope = FunctionScope.SIMPLE, nulls = NullHandling.NULL_IF_NULL)
-//	public static class WekaTestUpdateableNoQ implements DrillSimpleFunc{
-//		@Param  VarCharHolder operation;
-//		@Param 	NullableVarCharHolder classifierTxt;
-//		@Param  VarCharHolder features;
-//		@Output Float8Holder out;
-//		@Inject DrillBuf tempBuff;
-//		@Workspace WekaUpdatableClassifierHolder classifier;
-//		@Workspace String function;
-//		
-//		@Override
-//		public void setup(RecordBatch incoming) {
-//			classifier = new WekaUpdatableClassifierHolder();
-//			classifier.classifier=null;
-//			
-//		}
-//		@Override
-//		public void eval() {
-//
-//			boolean firstRun = false;
-//			if(function == null || function.length()==0){
-//				byte[] operationBuf = new byte[operation.end - operation.start];
-//				operation.buffer.getBytes(operation.start, operationBuf, 0, operation.end - operation.start);
-//				function = new String(operationBuf, com.google.common.base.Charsets.UTF_8).toLowerCase();
-//				firstRun = true;
-//			}
-//
-//			if ("ibk".equals(function)){
-//
-//				if(firstRun)
-//				{
-//					try{
-//						byte[] classifierBuf = new byte[classifierTxt.end - classifierTxt.start];
-//						classifierTxt.buffer.getBytes(classifierTxt.start, classifierBuf, 0, classifierTxt.end - classifierTxt.start);
-//						java.io.InputStream cis = new java.io.ByteArrayInputStream(classifierBuf);
-//						System.out.println("loading classifier from disk");
-//						
-//						try {
-//							classifier.classifier = (weka.classifiers.lazy.IBk) weka.core.SerializationHelper.read(cis);
-//							System.out.println("read classifier:"+ classifier.classifier);
-//						} catch (Exception e) {
-//							System.out.println("Failed to read classifier");
-//							e.printStackTrace(System.out);
-//						}
-//					}catch(Exception e){
-//						e.printStackTrace(System.out);
-//					}
-//				}
-//				
-//
-//				try {
-//					byte[] temp = new byte[features.end - features.start];
-//					features.buffer.getBytes(features.start, temp, 0, features.end - features.start);
-//					String rowData = new String(temp, com.google.common.base.Charsets.UTF_8);
-//					//			System.out.println("rowdata = "+rowData);
-//
-//					java.util.StringTokenizer st = new java.util.StringTokenizer(rowData, ",");
-//
-//					int attributesCount = st.countTokens();
-//					String arffHeader = "@"+"RELATION Drill\n";
-//					for(int i=0; i< attributesCount-1;i++)
-//					{
-//						arffHeader+="@"+"ATTRIBUTE att"+i+" numeric\n";
-//					}
-//					arffHeader+="@"+"ATTRIBUTE class numeric\n";
-//					arffHeader+="@"+"DATA\n";
-//					//System.out.println((arffHeader+rowData));
-//
-//
-//					// convert String into InputStream
-//					java.io.InputStream is = new java.io.ByteArrayInputStream((arffHeader+rowData).getBytes("UTF-8"));
-//
-//					// read it with BufferedReader
-//					java.io.BufferedReader datafile = new java.io.BufferedReader(new java.io.InputStreamReader(is));
-//
-//
-//
-//					weka.core.Instances instances = new weka.core.Instances(datafile);
-//					instances.setClassIndex(instances.numAttributes() - 1);
-//
-//					out.value = classifier.classifier.classifyInstance(instances.instance(0));
-//				}catch(Exception e)
-//				{
-//					e.printStackTrace();
-//				}
-//
-//			}
-//		
-//			
-//		}
-//	}
-//	
-//	@FunctionTemplate(name = "qdm_test_weka", scope = FunctionScope.SIMPLE, nulls = NullHandling.NULL_IF_NULL)
-//	public static class WekaTestUpdateable2 implements DrillSimpleFunc{
-//		@Param  VarCharHolder operation;
-//		@Param 	NullableVarCharHolder classifierTxt;
-//		@Output Float8Holder out;
-//		@Inject DrillBuf tempBuff;
-//		@Workspace WekaUpdatableClassifierHolder classifier;
-//		@Workspace String function;
-//
-//		public void setup(RecordBatch b) {
-//			classifier = new WekaUpdatableClassifierHolder();
-//			classifier.classifier=null;
-//
-//		}
-//
-//
-//		public void eval() {
-//			byte[] operationBuf = new byte[operation.end - operation.start];
-//			operation.buffer.getBytes(operation.start, operationBuf, 0, operation.end - operation.start);
-//			System.out.println("operation:"+new String(operationBuf, com.google.common.base.Charsets.UTF_8).toLowerCase()+"\n\n\n\n\n\n\n\n");
-//
-//
-//			try{
-//			operationBuf = new byte[classifierTxt.end - classifierTxt.start];
-//			classifierTxt.buffer.getBytes(classifierTxt.start, operationBuf, 0, classifierTxt.end - classifierTxt.start);
-//			System.out.println("others:"+new String(operationBuf, com.google.common.base.Charsets.UTF_8).toLowerCase());
-//			}catch(Exception e){
-//				e.printStackTrace(System.out);
-//			}
-//			
-//		}
-//	}
 
 	@FunctionTemplate(name = "qdm_test_weka", scope = FunctionScope.SIMPLE, nulls = NullHandling.NULL_IF_NULL)
 	public static class WekaTestUpdateable implements DrillSimpleFunc{
 		@Param  VarCharHolder operation;
+		@Param  VarCharHolder arguments;
 		@Param 	NullableVarCharHolder classifierTxt;
 		@Param  VarCharHolder features;
-		@Output Float8Holder out;
+		@Output VarCharHolder out;
 		@Inject DrillBuf tempBuff;
 		@Workspace WekaUpdatableClassifierHolder classifier;
 		@Workspace String function;
@@ -500,7 +366,7 @@ public class Weka {
 				firstRun = true;
 			}
 
-			if ("ibk".equals(function)){
+			
 
 				if(firstRun)
 				{
@@ -508,20 +374,26 @@ public class Weka {
 						byte[] classifierBuf = new byte[classifierTxt.end - classifierTxt.start];
 						classifierTxt.buffer.getBytes(classifierTxt.start, classifierBuf, 0, classifierTxt.end - classifierTxt.start);
 						java.io.InputStream cis = new java.io.ByteArrayInputStream(classifierBuf);
-						System.out.println("loading classifier from disk");
-						
+						//						System.out.println("loading classifier from disk");
+
 						try {
+							if ("ibk".equals(function)){
 							classifier.classifier = (weka.classifiers.lazy.IBk) weka.core.SerializationHelper.read(cis);
-							System.out.println("read classifier:"+ classifier.classifier);
+							//							System.out.println("read classifier:"+ classifier.classifier);
+							} else if ("nb".equals(function)){
+								classifier.classifier = (weka.classifiers.bayes.NaiveBayesUpdateable) weka.core.SerializationHelper.read(cis);
+							}
 						} catch (Exception e) {
-							System.out.println("Failed to read classifier");
-							e.printStackTrace(System.out);
+							//							System.out.println("Failed to read classifier");
+							//							e.printStackTrace(System.out);
+							e.printStackTrace();
 						}
 					}catch(Exception e){
-						e.printStackTrace(System.out);
+						//						e.printStackTrace(System.out);
+						e.printStackTrace();
 					}
 				}
-				
+
 
 				try {
 					byte[] temp = new byte[features.end - features.start];
@@ -537,9 +409,35 @@ public class Weka {
 					{
 						arffHeader+="@"+"ATTRIBUTE att"+i+" numeric\n";
 					}
+					
+					byte[] argsBuf = new byte[arguments.end - arguments.start];
+					arguments.buffer.getBytes(arguments.start, argsBuf, 0, arguments.end - arguments.start);
+					
+					String[] classes = null;
+					String[] options = null;
+					try {
+						options = weka.core.Utils.splitOptions((new String(argsBuf, com.google.common.base.Charsets.UTF_8)));
+						for(int i=0;i<options.length;i++){
+//							System.out.println("option"+i+":"+options[i]);
+							if(options[i].indexOf("classes")>0){
+								classes = options[i+1].substring(1, options[i+1].length()-1).split(",");
+								
+//								System.out.println("class type:"+classes);
+								options[i]="";
+								options[i+1]="";
+							}
+						}
+						
+					} catch (Exception e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
+					}
+					
+//					arffHeader+="@"+"ATTRIBUTE class "+classType+"\n";
+					
 					arffHeader+="@"+"ATTRIBUTE class numeric\n";
 					arffHeader+="@"+"DATA\n";
-					//System.out.println((arffHeader+rowData));
+//					System.out.println((arffHeader+rowData));
 
 
 					// convert String into InputStream
@@ -552,14 +450,45 @@ public class Weka {
 
 					weka.core.Instances instances = new weka.core.Instances(datafile);
 					instances.setClassIndex(instances.numAttributes() - 1);
-
-					out.value = classifier.classifier.classifyInstance(instances.instance(0));
+					
+					
+					String output="";
+//					if(classType.equalsIgnoreCase("numeric"))
+//						out.value = classifier.classifier.classifyInstance(instances.instance(0));
+//					else
+//					{
+						double[] predictions = classifier.classifier.distributionForInstance(instances.instance(0));
+						if(predictions.length==1){
+							output = ""+predictions[0];
+						} else {
+//							for(int i=0;i<predictions.length;i++){
+//								System.out.print(predictions[i]+",");
+//							}
+							java.util.List b = java.util.Arrays.asList(org.apache.commons.lang.ArrayUtils.toObject(predictions));
+							
+//					        System.out.println("\nmax="+java.util.Collections.max(b));
+//					        System.out.println("index="+b.indexOf(java.util.Collections.max(b)));
+					        if(classes!=null)
+					        	output= classes[b.indexOf(java.util.Collections.max(b))];
+					        else
+					        	output= ""+(b.indexOf(java.util.Collections.max(b))+1);
+						}
+//					}
+					
+					out.buffer = tempBuff;
+					//String output = "The "+modelName+" model was successfully created.\n";
+					//byte[] outbuff = (os.toString(com.google.common.base.Charsets.UTF_8).getBytes(com.google.common.base.Charsets.UTF_8));
+					out.buffer = out.buffer.reallocIfNeeded(output.getBytes().length);
+					out.buffer.setBytes(0, output.getBytes());//.setBytes(0,outbuff);
+					out.start=0;
+					out.end=output.getBytes().length;
+					
 				}catch(Exception e)
 				{
 					e.printStackTrace();
 				}
 
-			}
+			
 		}
 	}
 
