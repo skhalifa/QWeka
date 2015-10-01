@@ -184,31 +184,31 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
      PreProcessLogicalRel.initialize(planner.getTypeFactory(), context.getDrillOperatorTable());
      PreProcessLogicalRel visitor =  PreProcessLogicalRel.getVisitor();
      try {
-    	 logger.info("DefaultSQL try rel="+rel.toString());
-    	 logger.info("DefaultSQL try rel="+rel.getClass());
-    	 logger.info("DefaultSQL try rel size="+rel.getCollationList().size());
-    	 if (rel instanceof AggregateRel){
-				logger.info("Shadi:it's aggregate = " + ((AggregateRel) rel).getAggCallList().get(0).getAggregation().getName());
-				AggregateRel agg = (AggregateRel) rel;
-				
-				
-			}
-    	 if (rel instanceof ProjectRel){
-				logger.info("Shadi:it's projection = " + ((ProjectRel) rel).getChildExps().get(0).toString());
-				ProjectRel agg = (ProjectRel) rel;
-				
-				
-			}
+//    	 logger.info("DefaultSQL try rel="+rel.toString());
+//    	 logger.info("DefaultSQL try rel="+rel.getClass());
+//    	 logger.info("DefaultSQL try rel size="+rel.getCollationList().size());
+//    	 if (rel instanceof AggregateRel){
+////				logger.info("Shadi:it's aggregate = " + ((AggregateRel) rel).getAggCallList().get(0).getAggregation().getName());
+//				AggregateRel agg = (AggregateRel) rel;
+//				
+//				
+//			}
+//    	 if (rel instanceof ProjectRel){
+////				logger.info("Shadi:it's projection = " + ((ProjectRel) rel).getChildExps().get(0).toString());
+//				ProjectRel agg = (ProjectRel) rel;
+//				
+//				
+//			}
     	 
-    		for(int i =0;i<rel.getCollationList().size(); i++)
-			{
-				logger.info("Shadi:rel children: "+rel.getCollationList().get(i).toString());
-				
-			
-			}
+//    		for(int i =0;i<rel.getCollationList().size(); i++)
+//			{
+//				logger.info("Shadi:rel children: "+rel.getCollationList().get(i).toString());
+//				
+//			
+//			}
         rel = rel.accept(visitor);
      } catch(UnsupportedOperationException ex) {
-    	 logger.info("DefaultSQL catch");
+//    	 logger.info("DefaultSQL catch");
         visitor.convertException();
        throw ex;
      }
