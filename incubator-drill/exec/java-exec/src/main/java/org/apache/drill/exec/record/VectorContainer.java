@@ -235,21 +235,31 @@ public class VectorContainer implements Iterable<VectorWrapper<?>>, VectorAccess
 //    
 //    for(int i=0;i<wrappers.size();i++){
 //    	logger.info("Shadi wrappers.get("+i+").getField() = "+ wrappers.get(i).getField());
+//    	wrappers.get(i).getField();
+//    }
+//    
+//    for(int i=0;i<fieldIds.length;i++){
+//    	logger.info("Shadi fieldIds["+i+"] = "+ fieldIds[i]);
 //    }
     
     //TODO: Shadi: This is a temp workaround to fix joining when run on multiple nodes. 
     // The fix uses the location of the first table as the location of the second table too.
     // Works perfectly
     
-    VectorWrapper<?> va;
+//    VectorWrapper<?> va;
+    VectorWrapper<?> va = wrappers.get(fieldIds[0]);
+//    logger.info("Shadi normal fetch getting:"+fieldIds[0]+" / va.getField() = "+ va.getField());
+//    if(fieldIds[0] < wrappers.size()){
+//    	va = wrappers.get(fieldIds[0]);
+//    	logger.info("Shadi normal fetch getting:"+fieldIds[0]+" / va.getField() = "+ va.getField());
+//    } else {
+//    	va = wrappers.get((fieldIds[0]%wrappers.size())+2);
+//    	logger.info("Shadi UNnormal OLD fetch getting ((fieldIds[0]%wrappers.size())+2)="+((fieldIds[0]%wrappers.size())+2)+" / FieldIds[0]="+fieldIds[0]+" / wrappers.size()= "+wrappers.size()+" / va.getField() = "+ va.getField());
+//    	va = wrappers.get(wrappers.size()-1);
+//    	logger.info("Shadi UNnormal NEW fetch getting (wrappers.size()-1)="+(wrappers.size()-1)+" / va.getField() = "+ va.getField());
+//    	
+//    }
     
-    if(fieldIds[0] < wrappers.size()){
-    	va = wrappers.get(fieldIds[0]);
-    } else {
-    	va = wrappers.get((fieldIds[0]%wrappers.size())+2);
-    }
-    
-  
 
     if (va == null) {
       return null;
