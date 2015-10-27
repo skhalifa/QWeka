@@ -279,7 +279,7 @@ public class DrillSqlWorker {
 	        		}
         		}
         		
-        		firstArg = "(SELECT 1 as d1a381f3g74, * FROM "+firstArg+" ) AS "+a1;
+        		firstArg = "(SELECT 1 as d1a381f3g74, "+((firstArg.indexOf("`")>-1)?"columns":"*")+" FROM "+firstArg+" ) AS "+a1;
         		logger.info("firstArg modified:" + firstArg);
         		
         		
@@ -323,7 +323,7 @@ public class DrillSqlWorker {
         		logger.info("secondArg:" + secondArg);
         		
         		
-        		secondArg = "(SELECT 1 as d1a381f3g73, * FROM "+secondArg+" ) AS "+a2;
+        		secondArg = "(SELECT 1 as d1a381f3g73, columns FROM "+secondArg+" ) AS "+a2;
         		logger.info("secondArg modified:" + secondArg);
 
     			sql=newSqlBefore+" "+firstArg+
