@@ -6,6 +6,14 @@ import io.netty.buffer.DrillBuf;
 import javax.inject.Inject;
 
 
+
+
+
+
+
+
+
+
 import org.apache.drill.exec.expr.DrillAggFunc;
 import org.apache.drill.exec.expr.DrillSimpleFunc;
 import org.apache.drill.exec.expr.annotations.FunctionTemplate;
@@ -14,16 +22,36 @@ import org.apache.drill.exec.expr.annotations.Param;
 import org.apache.drill.exec.expr.annotations.Workspace;
 import org.apache.drill.exec.expr.annotations.FunctionTemplate.FunctionScope;
 import org.apache.drill.exec.expr.annotations.FunctionTemplate.NullHandling;
+import org.apache.drill.exec.expr.holders.BigIntHolder;
 import org.apache.drill.exec.expr.holders.BitHolder;
+import org.apache.drill.exec.expr.holders.Float8Holder;
 import org.apache.drill.exec.expr.holders.IntHolder;
+import org.apache.drill.exec.expr.holders.NullableFloat8Holder;
 import org.apache.drill.exec.expr.holders.NullableVarCharHolder;
+import org.apache.drill.exec.expr.holders.ObjectHolder;
+import org.apache.drill.exec.expr.holders.RepeatedVarCharHolder;
+import org.apache.drill.exec.expr.holders.UInt1Holder;
 import org.apache.drill.exec.expr.holders.VarCharHolder;
 import org.apache.drill.exec.record.RecordBatch;
+
+import com.jcraft.jsch.Logger;
 
 
 
 public class Weka {
 
+	/**
+	 * @author shadi
+	 * 
+	 * select qdm_train_weka('?') 
+	 * from `output100M.csv` as mydata;
+	 * 
+	 * OR
+	 * 
+	 * Select qdm_train_weka('nb') 
+	 * from `output100M.csv` as mydata;
+	 *
+	 */
 	@FunctionTemplate(name = "qdm_train_weka", scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE)
 	public static class WekaTrainSupportedArgs implements DrillAggFunc{
 
@@ -34,26 +62,19 @@ public class Weka {
 		@Output VarCharHolder out;
 
 		@Override
-		public void setup(RecordBatch incoming) {
+		public void setup() {
 			operationHolder = new VarCharHolder();
 			operationHolder.start = operationHolder.end = 0; 
 			operationHolder.buffer = tempBuff;
 
 			operationStringLength = new IntHolder();
 			operationStringLength.value=0;
-			//			byte[] operationBuf = new byte[operation.buffer.capacity()];
-			//			operation.buffer.getBytes(0, operationBuf, 0, operation.buffer.capacity());
-			////			System.out.println(new String(operationBuf,com.google.common.base.Charsets.UTF_8));
-			//			operationHolder.buffer.setBytes(0, operationBuf);
-
 		}
 
 		@Override
 		public void add() {
-			//			operationHolder.buffer=tempBuff;
 			byte[] operationBuf = new byte[operation.end - operation.start];
 			operation.buffer.getBytes(operation.start, operationBuf, 0, operation.end - operation.start);
-			//			System.out.println(new String(operationBuf,com.google.common.base.Charsets.UTF_8));
 			operationHolder.buffer.setBytes(0, operationBuf);
 			operationStringLength.value = (operation.end - operation.start);
 
@@ -62,7 +83,6 @@ public class Weka {
 		@Override
 		public void output() {
 			out.buffer = tempBuff;
-			//			System.out.println("In out of help function");
 			byte[] operationBuf = new byte[operationStringLength.value];
 			operationHolder.buffer.getBytes(0, operationBuf, 0, operationStringLength.value);
 			String function = new String(operationBuf, com.google.common.base.Charsets.UTF_8).toLowerCase();
@@ -95,14 +115,10 @@ public class Weka {
 			} else{
 				function+=":"+"No Args";
 			}
-
-			//			System.out.println("help function = "+function);
 			out.buffer = out.buffer.reallocIfNeeded(function.length()+100);
 			out.buffer.setBytes(0,function.getBytes(com.google.common.base.Charsets.UTF_8));
 			out.start=0;
 			out.end=function.length();
-			//			System.out.println(function);
-
 		}
 
 		@Override
@@ -112,10 +128,18 @@ public class Weka {
 		}
 
 	}
+	
+	/**
+	 * @author shadi
+	 * 
+	 * Train model xzy as 
+	 * select qdm_train_weka('nb','-classes {1,2}', mydata.columns[1], mydata.columns[2], mydata.columns[3], mydata.columns[4], mydata.columns[5]) 
+	 * from `output100M.csv` as mydata;
+	 *
+	 */
 
 	@FunctionTemplate(name = "qdm_train_weka", scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE)
 	public static class WekaTrainUpdateable implements DrillAggFunc{
-
 
 		@Param  VarCharHolder operation;
 		@Param  VarCharHolder arguments;
@@ -126,45 +150,30 @@ public class Weka {
 		@Workspace StringHolder function;
 		@Workspace StringHolder arffHeader;
 		@Workspace  BitHolder firstRun;
-		//		@Workspace String[] options;
 
-		public void setup(RecordBatch b) {
-			//System.out.println("Shadi: Setup start : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
+		public void setup() {
 			classifier = new WekaUpdatableClassifierHolder();
 			function = new StringHolder();
 			arffHeader = new StringHolder();
 			firstRun = new BitHolder();
-			//System.out.println("Shadi: Setup WekaUpdatableClassifierHolder : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
 			classifier.classifier=null;
 			function.value=null;
 			arffHeader.value=null;
 			firstRun.value=0;
-			//System.out.println("Shadi: Setup classifier.classifier=null; : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
 		}
 
 		@Override
 		public void add() {
-			//			System.out.println("Shadi: add start : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-
 			byte[] temp = new byte[features.end - features.start];
 			features.buffer.getBytes(features.start, temp, 0, features.end - features.start);
 			String rowData = new String(temp, com.google.common.base.Charsets.UTF_8);
-			//			System.out.println("Shadi: add rowData end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-
 			String [] options = null;
-
-			//			boolean firstRun = false;
-			//System.out.println("Shadi: add check  function "+function.value+": "+new java.sql.Timestamp((new java.util.Date()).getTime()));
 			if(firstRun.value==0){
 				firstRun.value = 1;
 				byte[] operationBuf = new byte[operation.end - operation.start];
 				operation.buffer.getBytes(operation.start, operationBuf, 0, operation.end - operation.start);
 				function.value = new String(operationBuf, com.google.common.base.Charsets.UTF_8).toLowerCase();
-				//				System.out.println("Shadi: add function end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-
 				java.util.StringTokenizer st = new java.util.StringTokenizer(rowData, ",");
-				//System.out.println("Shadi: add tokenizer end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-
 				int attributesCount = st.countTokens();
 				java.lang.StringBuilder stBuilder = new java.lang.StringBuilder();
 				stBuilder.append("@"+"RELATION Drill\n");
@@ -172,16 +181,9 @@ public class Weka {
 				{
 					stBuilder.append("@"+"ATTRIBUTE att"+i+" numeric\n");
 				}
-
-				//System.out.println("Shadi: add header end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-
 				byte[] argsBuf = new byte[arguments.end - arguments.start];
 				arguments.buffer.getBytes(arguments.start, argsBuf, 0, arguments.end - arguments.start);
-
-				//System.out.println("Shadi: add argsBuf end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-
 				String classType = "numeric";
-
 				try {
 					options = weka.core.Utils.splitOptions((new String(argsBuf, com.google.common.base.Charsets.UTF_8)));
 					for(int i=0;i<options.length;i++){
@@ -191,96 +193,43 @@ public class Weka {
 							options[i+1]="";
 						}
 					}
-
 				} catch (Exception e1) {
-					// TODO Auto-generated catch block
 					e1.printStackTrace();
 				}
-
-				//System.out.println("Shadi: add options end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-
 				stBuilder.append("@"+"ATTRIBUTE class "+classType+"\n");
 				stBuilder.append("@"+"DATA\n");
 				arffHeader.value = stBuilder.toString();
-
 			}
-
 			try {
-				//				//System.out.println("Shadi: arff : "+arffHeader.value+rowData);
-				// convert String into InputStream
-				//				java.io.InputStream is = new java.io.ByteArrayInputStream((arffHeader.value+rowData).getBytes("UTF-8"));
-
-				//				//System.out.println("Shadi: add is end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-
-				//				java.io.BufferedReader datafile = new java.io.BufferedReader(new java.io.StringReader(arffHeader.value+rowData));
-
-				// read it with BufferedReader
-				//				java.io.BufferedReader datafile = new java.io.BufferedReader(new java.io.InputStreamReader(is));
-
-				//				System.out.println("Shadi: add datafile end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-
 				weka.core.Instances instances = new weka.core.Instances(new java.io.StringReader(arffHeader.value+rowData));
-
-
-				//				System.out.println("Shadi: add instances end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-
 				instances.setClassIndex(instances.numAttributes() - 1);
-
-				//System.out.println("Shadi: add setclassindex end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-
 				if ("ibk".equals(function.value)){
 					try{
-
-						// train KNN
 						((weka.classifiers.lazy.IBk)classifier.classifier).updateClassifier(instances.instance(0));
-												//System.out.println("Update classifier = "+classifier.classifier.toString()+" using:"+((weka.classifiers.lazy.IBk)classifier.classifier).getNumTraining());
-
-
 					}catch(Exception ex){
-						//						//System.out.println("ex1="+ex.getMessage());
 						try{
 							classifier.classifier = new weka.classifiers.lazy.IBk();
-
-
 							((weka.classifiers.lazy.IBk)classifier.classifier).setOptions(options);
-							//							//System.out.println("options: "+((weka.classifiers.lazy.IBk)classifier.classifier).getOptions());
 							classifier.classifier.buildClassifier(instances);
-							//							//System.out.println("New classifier = "+classifier.classifier);
-							//						ibk.updateClassifier(instances.instance(0));
 						}catch(Exception e){
-							//							//System.out.println("ex2="+e.getMessage()); 
 							e.printStackTrace();
 						}
 					}
 				} else if ("nb".equals(function.value)){
 					try{
-
-						// train NaiveBayes
 						((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).updateClassifier(instances.instance(0));
-						//						//System.out.println("Update classifier = "+classifier.classifier.toString()+" using:"+((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).getNumTraining());
-//						System.out.println("Shadi: add update classifier end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-
 					}catch(Exception ex){
-						//						//System.out.println("ex1="+ex.getMessage());
 						try{
 							classifier.classifier = new weka.classifiers.bayes.NaiveBayesUpdateable();
-//							System.out.println("Shadi: add new classifier end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
 							((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).setOptions(options);
-//							System.out.println("Shadi: add new classiifier set options end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-							//							//System.out.println("options: "+((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).getOptions());
 							classifier.classifier.buildClassifier(instances);
-//							System.out.println("Shadi: add classifier build end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-							//							//System.out.println("New classifier = "+classifier.classifier);
-							//						ibk.updateClassifier(instances.instance(0));
 						}catch(Exception e){
-							//							//System.out.println("ex2="+e.getMessage()); 
 							e.printStackTrace();
 						}
 					}
 				} 
 
 			} catch (Exception e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 
@@ -288,53 +237,947 @@ public class Weka {
 		}
 		@Override
 		public void output() {
-			//System.out.println("Shadi: output start : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
 			try {
-
 				java.io.ByteArrayOutputStream os = new java.io.ByteArrayOutputStream();
-
-				//System.out.println("Shadi: output os end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-
 				weka.core.SerializationHelper.write(os, classifier.classifier);
-
-				//System.out.println("Shadi: output write end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-
 				out.buffer = tempBuff;
-
-				//System.out.println("Shadi: output out.buffer end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-
-
 				out.buffer = out.buffer.reallocIfNeeded(os.toByteArray().length);
-
-				//System.out.println("Shadi: output buffer realloc end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-
 				out.buffer.setBytes(0, os.toByteArray());//.setBytes(0,outbuff);
-
-				//System.out.println("Shadi: output buffer.setBytes end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-
 				out.start=0;
 				out.end=os.toByteArray().length;
-
-				//System.out.println("Shadi: output start end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-
-
 			} catch (Exception e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 
 		}
 		@Override
 		public void reset() {
-			//System.out.println("Shadi: reset start : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-			//value = null; 
-			//value.buffer = buffer;// = buffer.reallocIfNeeded( 1 + (right.end - right.start));
-			//			end.value = 0;
 		}
 	}
 
+	/**
+	 * @author shadi
+	 * 
+	 * Train model xzy as 
+	 * select qdm_train_weka('nb','-classes {1,2}', columns) 
+	 * from `output100M.csv` as mydata;
+	 *
+	 */
+
+	@FunctionTemplate(name = "qdm_train_weka", scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE)
+	public static class WekaTrainRepeatedUpdateable implements DrillAggFunc{
+
+		@Param  VarCharHolder operation;
+		@Param  VarCharHolder arguments;
+		@Param  RepeatedVarCharHolder features;
+		@Output VarCharHolder out;
+		@Inject DrillBuf tempBuff;
+		@Workspace WekaUpdatableClassifierHolder classifier;
+		@Workspace StringHolder function;
+		@Workspace StringHolder arffHeader;
+		@Workspace  BitHolder firstRun;
+		@Workspace VarCharHolder currVal;
+
+		public void setup() {
+			classifier = new WekaUpdatableClassifierHolder();
+			function = new StringHolder();
+			arffHeader = new StringHolder();
+			firstRun = new BitHolder();
+			classifier.classifier=null;
+			function.value=null;
+			arffHeader.value=null;
+			firstRun.value=0;
+			currVal = new VarCharHolder();
+		}
+
+		@Override
+		public void add() {
+			byte[] temp = new byte[features.end - features.start];
+			java.lang.StringBuilder rowBuilder = new java.lang.StringBuilder();
+			for (int i = features.start; i < features.end; i++) {
+			    features.vector.getAccessor().get(i, currVal);
+			    rowBuilder.append(org.apache.drill.exec.expr.fn.impl.StringFunctionHelpers.toStringFromUTF8(currVal.start, currVal.end, currVal.buffer)+",");
+			}
+			String rowData = rowBuilder.substring(0, rowBuilder.length()-1);
+			String [] options = null;
+			if(firstRun.value==0){
+				firstRun.value = 1;
+				byte[] operationBuf = new byte[operation.end - operation.start];
+				operation.buffer.getBytes(operation.start, operationBuf, 0, operation.end - operation.start);
+				function.value = new String(operationBuf, com.google.common.base.Charsets.UTF_8).toLowerCase();
+				java.util.StringTokenizer st = new java.util.StringTokenizer(rowData, ",");
+				int attributesCount = st.countTokens();
+				java.lang.StringBuilder stBuilder = new java.lang.StringBuilder();
+				stBuilder.append("@"+"RELATION Drill\n");
+				for(int i=0; i< attributesCount-1;i++)
+				{
+					stBuilder.append("@"+"ATTRIBUTE att"+i+" numeric\n");
+				}
+				byte[] argsBuf = new byte[arguments.end - arguments.start];
+				arguments.buffer.getBytes(arguments.start, argsBuf, 0, arguments.end - arguments.start);
+				String classType = "numeric";
+				try {
+					options = weka.core.Utils.splitOptions((new String(argsBuf, com.google.common.base.Charsets.UTF_8)));
+					for(int i=0;i<options.length;i++){
+						if(options[i].indexOf("classes")>0){
+							classType = options[i+1];
+							options[i]="";
+							options[i+1]="";
+						}
+					}
+				} catch (Exception e1) {
+					e1.printStackTrace();
+				}
+				stBuilder.append("@"+"ATTRIBUTE class "+classType+"\n");
+				stBuilder.append("@"+"DATA\n");
+				arffHeader.value = stBuilder.toString();
+			}
+			try {
+				weka.core.Instances instances = new weka.core.Instances(new java.io.StringReader(arffHeader.value+rowData));
+				instances.setClassIndex(instances.numAttributes() - 1);
+				if ("ibk".equals(function.value)){
+					try{
+						((weka.classifiers.lazy.IBk)classifier.classifier).updateClassifier(instances.instance(0));
+					}catch(Exception ex){
+						try{
+							classifier.classifier = new weka.classifiers.lazy.IBk();
+							((weka.classifiers.lazy.IBk)classifier.classifier).setOptions(options);
+							classifier.classifier.buildClassifier(instances);
+						}catch(Exception e){
+							e.printStackTrace();
+						}
+					}
+				} else if ("nb".equals(function.value)){
+					try{
+						((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).updateClassifier(instances.instance(0));
+					}catch(Exception ex){
+						try{
+							classifier.classifier = new weka.classifiers.bayes.NaiveBayesUpdateable();
+							((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).setOptions(options);
+							classifier.classifier.buildClassifier(instances);
+						}catch(Exception e){
+							e.printStackTrace();
+						}
+					}
+				} 
+
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
 
 
+		}
+		@Override
+		public void output() {
+			try {
+				java.io.ByteArrayOutputStream os = new java.io.ByteArrayOutputStream();
+				weka.core.SerializationHelper.write(os, classifier.classifier);
+				out.buffer = tempBuff;
+				out.buffer = out.buffer.reallocIfNeeded(os.toByteArray().length);
+				out.buffer.setBytes(0, os.toByteArray());//.setBytes(0,outbuff);
+				out.start=0;
+				out.end=os.toByteArray().length;
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+
+		}
+		@Override
+		public void reset() {
+		}
+	}
+	
+	/**
+	 * @author shadi
+	 * 
+	 * Train model xzy as 
+	 * select qdm_train_weka('nb','-classes {1,2}', columns) 
+	 * from `output100M.csv` as mydata;
+	 *
+	 */
+
+	@FunctionTemplate(name = "qdm_train_weka_agg", scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE)
+	public static class WekaTrainAgg1Updateable implements DrillAggFunc{
+
+		@Param  VarCharHolder operation;
+		@Param  VarCharHolder arguments;
+		@Param  RepeatedVarCharHolder features;
+		@Output VarCharHolder out;
+		@Inject DrillBuf tempBuff;
+		@Workspace WekaUpdatableClassifierHolder classifier;
+		@Workspace StringHolder function;
+//		@Workspace LinkedListHolder dataHolder;
+		@Workspace StringHolder arffHeader;
+		@Workspace  BitHolder firstRun;
+		@Workspace VarCharHolder currVal;
+
+		public void setup() {
+			classifier = new WekaUpdatableClassifierHolder();
+			function = new StringHolder();
+//			dataHolder = new LinkedListHolder();
+			arffHeader = new StringHolder();
+			firstRun = new BitHolder();
+			classifier.classifier=null;
+			function.value=null;
+			arffHeader.value=null;
+//			dataHolder.list = new java.util.LinkedList<String>();
+			firstRun.value=0;
+			currVal = new VarCharHolder();
+		}
+
+		@Override
+		public void add() {
+			java.lang.StringBuilder rowBuilder = new java.lang.StringBuilder();
+			for (int i = features.start; i < features.end; i++) {
+			    features.vector.getAccessor().get(i, currVal);
+			    rowBuilder.append(org.apache.drill.exec.expr.fn.impl.StringFunctionHelpers.toStringFromUTF8(currVal.start, currVal.end, currVal.buffer)+",");
+			}
+			String rowData = rowBuilder.substring(0, rowBuilder.length()-1);
+			String [] options = null;
+			if(firstRun.value==0){
+				firstRun.value = 1;
+				byte[] operationBuf = new byte[operation.end - operation.start];
+				operation.buffer.getBytes(operation.start, operationBuf, 0, operation.end - operation.start);
+				function.value = new String(operationBuf, com.google.common.base.Charsets.UTF_8).toLowerCase();
+				java.util.StringTokenizer st = new java.util.StringTokenizer(rowData, ",");
+				int attributesCount = st.countTokens();
+				java.lang.StringBuilder stBuilder = new java.lang.StringBuilder();
+
+				byte[] argsBuf = new byte[arguments.end - arguments.start];
+				arguments.buffer.getBytes(arguments.start, argsBuf, 0, arguments.end - arguments.start);
+				String classType = "numeric";
+				try {
+					options = weka.core.Utils.splitOptions((new String(argsBuf, com.google.common.base.Charsets.UTF_8)));
+					for(int i=0;i<options.length;i++){
+						if(options[i].indexOf("classes")>0){
+							classType = options[i+1];
+							options[i]="";
+							options[i+1]="";
+						}
+					}
+				} catch (Exception e1) {
+					e1.printStackTrace();
+				}
+//				stBuilder.append(function.value+"||"+options+"\n");
+				stBuilder.append("@"+"RELATION Drill\n");
+				for(int i=0; i< attributesCount-1;i++)
+				{
+					stBuilder.append("@"+"ATTRIBUTE att"+i+" numeric\n");
+				}
+				stBuilder.append("@"+"ATTRIBUTE class "+classType+"\n");
+				stBuilder.append("@"+"DATA\n");
+				arffHeader.value = stBuilder.toString();
+//				dataHolder.list.add(stBuilder.toString());
+//				dataHolder.value = stBuilder.toString();
+//				System.out.println("phase1-add: end first run"+arffHeader.value);
+			}
+
+//			long timeBefore = System.currentTimeMillis();
+//			dataHolder.list.add(rowData);
+//			dataHolder.value+=rowData;
+
+//			
+//			System.out.println("phase1-add:"+arffHeader.value);
+			try {
+				weka.core.Instances instances = new weka.core.Instances(new java.io.StringReader(arffHeader.value+rowData));
+				instances.setClassIndex(instances.numAttributes() - 1);
+				if ("ibk".equals(function.value)){
+					try{
+						((weka.classifiers.lazy.IBk)classifier.classifier).updateClassifier(instances.instance(0));
+					}catch(Exception ex){
+						try{
+							classifier.classifier = new weka.classifiers.lazy.IBk();
+							((weka.classifiers.lazy.IBk)classifier.classifier).setOptions(options);
+							classifier.classifier.buildClassifier(instances);
+						}catch(Exception e){
+							e.printStackTrace();
+						}
+					}
+				} else if ("nb".equals(function.value)){
+					try{
+						((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).updateClassifier(instances.instance(0));
+					}catch(Exception ex){
+						try{
+							classifier.classifier = new weka.classifiers.bayes.NaiveBayesUpdateable();
+							((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).setOptions(options);
+							classifier.classifier.buildClassifier(instances);
+						}catch(Exception e){
+							e.printStackTrace();
+						}
+					}
+				} 
+
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+//			long timeAfter = System.currentTimeMillis();
+//			System.out.println("training time:"+(timeAfter-timeBefore));
+
+
+		}
+		@Override
+		public void output() {
+			try {
+				System.out.println("Starting out");
+				long timeBefore = System.currentTimeMillis();
+				java.io.ByteArrayOutputStream os = new java.io.ByteArrayOutputStream();
+				weka.core.SerializationHelper.write(os, classifier.classifier);
+				byte[] data = os.toByteArray();
+				out.buffer = tempBuff;
+				out.buffer = out.buffer.reallocIfNeeded(data.length);
+				out.buffer.setBytes(0, data);//.setBytes(0,outbuff);
+				out.start=0;
+				out.end=data.length;
+				long timeAfter = System.currentTimeMillis();
+				System.out.println("out time:"+(timeAfter-timeBefore));
+				
+//				long timeBefore = System.currentTimeMillis();
+//				System.out.println("Starting out");
+//				byte[] data = dataHolder.toString().getBytes();
+//				byte[] data = dataHolder.value.getBytes();
+//				long timeAfter = System.currentTimeMillis();
+//				System.out.println("out time:"+(timeAfter-timeBefore));
+//				out.buffer = tempBuff;
+//				long timeBefore2 = System.currentTimeMillis();
+//				out.buffer = out.buffer.reallocIfNeeded(data.length);
+//				long timeAfter2 = System.currentTimeMillis();
+//				System.out.println("out time:"+(timeAfter2-timeBefore2));
+//				out.buffer.setBytes(0, data);//.setBytes(0,outbuff);
+//				long timeAfter3 = System.currentTimeMillis();
+//				System.out.println("out time2:"+(timeAfter3-timeAfter2));
+//				out.start=0;
+//				out.end=data.length;
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+
+		}
+		@Override
+		public void reset() {
+		}
+	}
+	
+	
+	/**
+	 * @author shadi
+	 * 
+	 * AGGREGATOR FOR
+	 * Train model xzy as 
+	 * select qdm_train_weka('nb','-classes {1,2}', columns) 
+	 * from `output100M.csv` as mydata;
+	 *
+	 */
+
+	@FunctionTemplate(name = "qdm_train_weka_agg", scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE)
+	public static class WekaTrainAgg2Updateable implements DrillAggFunc{
+
+		@Param  VarCharHolder model;
+		@Output VarCharHolder out;
+		@Inject DrillBuf tempBuff;
+		@Workspace WekaUpdatableClassifierHolder classifierAgg;
+		@Workspace StringHolder function;
+//		@Workspace  BitHolder firstRun;
+//		@Workspace VarCharHolder currVal;
+
+		public void setup() {
+			classifierAgg = new WekaUpdatableClassifierHolder();
+			function = new StringHolder();
+//			firstRun = new BitHolder();
+			classifierAgg.classifier=null;
+			function.value=null;
+//			firstRun.value=0;
+//			currVal = new VarCharHolder();
+		}
+
+		@Override
+		public void add() {
+		System.out.println("in agg add");
+			byte[] classifierBuf = new byte[model.end - model.start];
+			model.buffer.getBytes(model.start, classifierBuf, 0, model.end - model.start);
+//			String arfftmp = new String(tmp, com.google.common.base.Charsets.UTF_8);
+			
+//			System.out.println("phase2-add:"+arfftmp);
+			
+			function.value= "nb";			
+			try{
+				java.io.InputStream cis = new java.io.ByteArrayInputStream(classifierBuf);
+				try {
+					weka.classifiers.Classifier classifier = null;
+					if ("ibk".equals(function.value)){
+//						classifier = (weka.classifiers.lazy.IBk) weka.core.SerializationHelper.read(cis);
+//						if(classifierAgg.classifier==null){
+//							classifierAgg.classifier = classifier;
+//						} else {
+//							// aggregate classifiers
+//							((weka.classifiers.lazy.IBk) classifierAgg.classifier).
+//						}
+					} else if ("nb".equals(function.value)){
+						classifier = (weka.classifiers.bayes.NaiveBayesUpdateable) weka.core.SerializationHelper.read(cis);
+						if(classifierAgg.classifier==null){
+							System.out.println("first clasifier");
+							classifierAgg.classifier = classifier;
+						} else {
+							// aggregate classifiers
+							System.out.println("aggregating classifier");
+							long timeBefore = System.currentTimeMillis();
+							((weka.classifiers.bayes.NaiveBayesUpdateable) classifierAgg.classifier).aggregate((weka.classifiers.bayes.NaiveBayesUpdateable)classifier);
+							long timeAfter = System.currentTimeMillis();
+							System.out.println("aggregation time:"+(timeAfter-timeBefore));
+						}
+					}
+					
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}catch(Exception e){
+				e.printStackTrace();
+			}
+			
+
+//			try {
+//				weka.core.Instances instances = new weka.core.Instances(new java.io.StringReader(arfftmp));
+//				instances.setClassIndex(instances.numAttributes() - 1);
+//				if ("ibk".equals(function.value)){
+//					try{
+//						for(int i=0;i<instances.numInstances();i++){
+//							((weka.classifiers.lazy.IBk)classifier.classifier).updateClassifier(instances.instance(i));
+//						}
+//					}catch(Exception ex){
+//						try{
+//							classifier.classifier = new weka.classifiers.lazy.IBk();
+//							((weka.classifiers.lazy.IBk)classifier.classifier).setOptions(options);
+//							classifier.classifier.buildClassifier(instances);
+//						}catch(Exception e){
+//							e.printStackTrace();
+//						}
+//					}
+//				} else if ("nb".equals(function.value)){
+//					try{
+//						System.out.println("phase2: old classifier");
+//						for(int i=0;i<instances.numInstances();i++){
+//							((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).updateClassifier(instances.instance(i));
+//						}
+//						System.out.println("phase2: old classifier updated with "+instances.numInstances()+" instances");
+//					}catch(Exception ex){
+//						try{
+//							System.out.println("phase2: new classifier");
+//							classifier.classifier = new weka.classifiers.bayes.NaiveBayesUpdateable();
+//							((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).setOptions(options);
+//							classifier.classifier.buildClassifier(instances);
+//							System.out.println("phase2: new classifier Trained");
+//						}catch(Exception e){
+//							e.printStackTrace();
+//						}
+//					}
+//				} 
+//
+//			} catch (Exception e) {
+//				e.printStackTrace();
+//			}
+
+
+		}
+		@Override
+		public void output() {
+			try {
+				java.io.ByteArrayOutputStream os = new java.io.ByteArrayOutputStream();
+				weka.core.SerializationHelper.write(os, classifierAgg.classifier);
+				out.buffer = tempBuff;
+				out.buffer = out.buffer.reallocIfNeeded(os.toByteArray().length);
+				out.buffer.setBytes(0, os.toByteArray());//.setBytes(0,outbuff);
+				out.start=0;
+				out.end=os.toByteArray().length;
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+
+		}
+		@Override
+		public void reset() {
+		}
+
+	}
+	
+	
+	/**
+	 * @author shadi
+	 * 
+	 * Train model xzy as 
+	 * select qdm_train_weka_old('nb','-classes {1,2}', mydata.columns[1], mydata.columns[2], mydata.columns[3], mydata.columns[4], mydata.columns[5]) 
+	 * from `output100M.csv` as mydata;
+	 *
+	 */
+	
+	@FunctionTemplate(name = "qdm_train_weka_old", scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE)
+	public static class WekaTrainUpdateableOld implements DrillAggFunc{
+		@Param  VarCharHolder operation;
+		@Param  VarCharHolder arguments;
+		@Param  VarCharHolder features;
+		@Output VarCharHolder out;
+		@Inject DrillBuf tempBuff;
+		@Workspace WekaUpdatableClassifierHolder classifier;
+
+		public void setup() {
+			classifier = new WekaUpdatableClassifierHolder();
+			classifier.classifier=null;
+		}
+
+		@Override
+		public void add() {
+			byte[] operationBuf = new byte[operation.end - operation.start];
+			operation.buffer.getBytes(operation.start, operationBuf, 0, operation.end - operation.start);
+			String function = new String(operationBuf, com.google.common.base.Charsets.UTF_8).toLowerCase();
+			byte[] temp = new byte[features.end - features.start];
+			features.buffer.getBytes(features.start, temp, 0, features.end - features.start);
+			String rowData = new String(temp, com.google.common.base.Charsets.UTF_8);
+			java.util.StringTokenizer st = new java.util.StringTokenizer(rowData, ",");
+			int attributesCount = st.countTokens();
+			String arffHeader = "@"+"RELATION Drill\n";
+			for(int i=0; i< attributesCount-1;i++)
+			{
+				arffHeader+="@"+"ATTRIBUTE att"+i+" numeric\n";
+			}
+			
+			byte[] argsBuf = new byte[arguments.end - arguments.start];
+			arguments.buffer.getBytes(arguments.start, argsBuf, 0, arguments.end - arguments.start);
+			
+			String classType = "numeric";
+			String[] options = null;
+			try {
+				options = weka.core.Utils.splitOptions((new String(argsBuf, com.google.common.base.Charsets.UTF_8)));
+				for(int i=0;i<options.length;i++){
+					if(options[i].indexOf("classes")>0){
+						classType = options[i+1];
+						options[i]="";
+						options[i+1]="";
+					}
+				}
+				
+			} catch (Exception e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+			
+			arffHeader+="@"+"ATTRIBUTE class "+classType+"\n";
+			arffHeader+="@"+"DATA\n";
+			try {
+				// convert String into InputStream
+				java.io.InputStream is = new java.io.ByteArrayInputStream((arffHeader+rowData).getBytes("UTF-8"));
+				// read it with BufferedReader
+				java.io.BufferedReader datafile = new java.io.BufferedReader(new java.io.InputStreamReader(is));
+				weka.core.Instances instances = new weka.core.Instances(datafile);
+				instances.setClassIndex(instances.numAttributes() - 1);
+				if ("ibk".equals(function)){
+					try{
+						// train KNN
+						((weka.classifiers.lazy.IBk)classifier.classifier).updateClassifier(instances.instance(0));
+					}catch(Exception ex){
+						try{
+							classifier.classifier = new weka.classifiers.lazy.IBk();
+							((weka.classifiers.lazy.IBk)classifier.classifier).setOptions(options);
+							classifier.classifier.buildClassifier(instances);
+						}catch(Exception e){
+							e.printStackTrace();
+						}
+					}
+				} else if ("nb".equals(function)){
+					try{
+						// train NaiveBayes
+						((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).updateClassifier(instances.instance(0));
+					}catch(Exception ex){
+						try{
+							classifier.classifier = new weka.classifiers.bayes.NaiveBayesUpdateable();
+							((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).setOptions(options);
+							classifier.classifier.buildClassifier(instances);
+						}catch(Exception e){
+							e.printStackTrace();
+						}
+					}
+				} 
+
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+		@Override
+		public void output() {
+			try {
+				java.io.ByteArrayOutputStream os = new java.io.ByteArrayOutputStream();
+				weka.core.SerializationHelper.write(os, classifier.classifier);
+				out.buffer = tempBuff;
+				out.buffer = out.buffer.reallocIfNeeded(os.toByteArray().length);
+				out.buffer.setBytes(0, os.toByteArray());//.setBytes(0,outbuff);
+				out.start=0;
+				out.end=os.toByteArray().length;
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+
+		}
+		@Override
+		public void reset() {
+
+		}
+	}
+	
+	/**
+	 * @author shadi
+	 * 
+	 * Train model xzy as 
+	 * select maxx(columns[0]) 
+	 * from `output100M.csv` as mydata;
+	 *
+	 */
+
+	@FunctionTemplate(name = "maxx", scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE)
+	public static class WekaTrainRepeatedUpdateableParallel implements DrillAggFunc{
+		
+
+		@Param  VarCharHolder operation;
+//		@Param  VarCharHolder arguments;
+//		@Param  RepeatedVarCharHolder features;
+
+		  @Workspace ObjectHolder value;
+		  @Workspace UInt1Holder init; 
+		  @Inject DrillBuf buf;
+		  @Output VarCharHolder out;
+
+		  public void setup() {
+		    init = new UInt1Holder();
+		    init.value = 0;
+		    value = new ObjectHolder();
+		    org.apache.drill.exec.expr.fn.impl.DrillByteArray tmp = new org.apache.drill.exec.expr.fn.impl.DrillByteArray();
+		    value.obj = tmp;
+
+		  }
+
+		  @Override
+		  public void add() {
+		    org.apache.drill.exec.expr.fn.impl.DrillByteArray tmp = (org.apache.drill.exec.expr.fn.impl.DrillByteArray) value.obj;
+		    int cmp = 0;
+		    boolean swap = false;
+
+		    // if buffer is null then swap
+		    if (init.value == 0) {
+		      init.value = 1;
+		      swap = true;
+		    } else {
+		      // Compare the bytes
+//		      cmp = org.apache.drill.exec.expr.fn.impl.ByteFunctionHelpers.compare(in.buffer, in.start, in.end, tmp.getBytes(), 0, tmp.getLength());
+
+
+		      swap = (cmp == 1);
+		    }
+//		    if (swap) {
+//		      int inputLength = in.end - in.start;
+//		      if (tmp.getLength() >= inputLength) {
+//		        in.buffer.getBytes(in.start, tmp.getBytes(), 0, inputLength);
+//		        tmp.setLength(inputLength);
+//		      } else {
+//		        byte[] tempArray = new byte[in.end - in.start];
+//		        in.buffer.getBytes(in.start, tempArray, 0, in.end - in.start);
+//		        tmp.setBytes(tempArray);
+//		      }
+//		    }
+		  }
+
+		  @Override
+		  public void output() {
+		    org.apache.drill.exec.expr.fn.impl.DrillByteArray tmp = (org.apache.drill.exec.expr.fn.impl.DrillByteArray) value.obj;
+		    buf = buf.reallocIfNeeded(tmp.getLength());
+		    buf.setBytes(0, tmp.getBytes(), 0, tmp.getLength());
+		    out.start  = 0;
+		    out.end    = tmp.getLength();
+		    out.buffer = buf;
+		  }
+
+		  @Override
+		  public void reset() {
+		    value = new ObjectHolder();
+		    init.value = 0;
+		  }
+
+	}
+
+	
+	/**
+	 * @author shadi
+	 * 
+	 * Train model xzy as 
+	 * select qdm_train_weka_new('nb','-classes {1,2}', mydata.columns[1], mydata.columns[2], mydata.columns[3], mydata.columns[4], mydata.columns[5]) 
+	 * from `output100M.csv` as mydata;
+	 *
+	 */
+	@FunctionTemplate(name = "qdm_train_weka_new", scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE)
+	public static class WekaTrainUpdateableNew implements DrillAggFunc{
+
+		@Param  VarCharHolder operation;
+		@Param  VarCharHolder arguments;
+		@Param  VarCharHolder features;
+		@Output VarCharHolder out;
+		@Inject DrillBuf tempBuff;
+//		@Workspace WekaUpdatableClassifierHolder classifier;
+		@Workspace StringHolder function;
+		@Workspace StringArrayHolder options;
+		@Workspace StringHolder arffHeader;
+		@Workspace  BitHolder firstRun;
+
+		public void setup() {
+//			classifier = new WekaUpdatableClassifierHolder();
+			function = new StringHolder();
+			arffHeader = new StringHolder();
+			options = new StringArrayHolder();
+			firstRun = new BitHolder();
+//			classifier.classifier=null;
+			function.value=null;
+			arffHeader.value=null;
+			options.value=null;
+			firstRun.value=0;
+		}
+
+		@Override
+		public void add() {
+			byte[] temp = new byte[features.end - features.start];
+			features.buffer.getBytes(features.start, temp, 0, features.end - features.start);
+			String rowData = new String(temp, com.google.common.base.Charsets.UTF_8);
+//			String [] options = null;
+			if(firstRun.value==0){
+				firstRun.value = 1;
+				byte[] operationBuf = new byte[operation.end - operation.start];
+				operation.buffer.getBytes(operation.start, operationBuf, 0, operation.end - operation.start);
+				function.value = new String(operationBuf, com.google.common.base.Charsets.UTF_8).toLowerCase();
+				java.util.StringTokenizer st = new java.util.StringTokenizer(rowData, ",");
+				int attributesCount = st.countTokens();
+				java.lang.StringBuilder stBuilder = new java.lang.StringBuilder();
+				stBuilder.append("@"+"RELATION Drill\n");
+				for(int i=0; i< attributesCount-1;i++)
+				{
+					stBuilder.append("@"+"ATTRIBUTE att"+i+" numeric\n");
+				}
+				byte[] argsBuf = new byte[arguments.end - arguments.start];
+				arguments.buffer.getBytes(arguments.start, argsBuf, 0, arguments.end - arguments.start);
+				String classType = "numeric";
+				try {
+					options.value = weka.core.Utils.splitOptions((new String(argsBuf, com.google.common.base.Charsets.UTF_8)));
+					for(int i=0;i<options.value.length;i++){
+						if(options.value[i].indexOf("classes")>0){
+							classType = options.value[i+1];
+							options.value[i]="";
+							options.value[i+1]="";
+						}
+					}
+				} catch (Exception e1) {
+					e1.printStackTrace();
+				}
+				stBuilder.append("@"+"ATTRIBUTE class "+classType+"\n");
+				stBuilder.append("@"+"DATA\n");
+				arffHeader.value = stBuilder.toString();
+			}
+			arffHeader.value+=rowData+"\n";
+
+
+		}
+		@Override
+		public void output() {
+			try {
+				weka.classifiers.Classifier classifier = null;
+				try {
+					weka.core.Instances instances = new weka.core.Instances(new java.io.StringReader(arffHeader.value));
+					instances.setClassIndex(instances.numAttributes() - 1);
+					if ("ibk".equals(function.value)){
+						try{
+							classifier = new weka.classifiers.lazy.IBk();
+							((weka.classifiers.lazy.IBk)classifier).setOptions(options.value);
+							((weka.classifiers.lazy.IBk)classifier).buildClassifier(instances);
+						}catch(Exception e){
+							e.printStackTrace();
+						}
+						
+					} else if ("nb".equals(function.value)){
+						try{
+							classifier = new weka.classifiers.bayes.NaiveBayesUpdateable();
+							((weka.classifiers.bayes.NaiveBayesUpdateable)classifier).setOptions(options.value);
+							((weka.classifiers.bayes.NaiveBayesUpdateable)classifier).buildClassifier(instances);
+						}catch(Exception e){
+							e.printStackTrace();
+						}
+					} 
+
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				java.io.ByteArrayOutputStream os = new java.io.ByteArrayOutputStream();
+				weka.core.SerializationHelper.write(os, classifier);
+				out.buffer = tempBuff;
+				out.buffer = out.buffer.reallocIfNeeded(os.toByteArray().length);
+				out.buffer.setBytes(0, os.toByteArray());//.setBytes(0,outbuff);
+				out.start=0;
+				out.end=os.toByteArray().length;
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+
+		}
+		@Override
+		public void reset() {
+		}
+	}
+
+	/**
+	 * @author shadi
+	 * 
+	 * Train model xzy as 
+	 * select qdm_update_weka('nb','-classes {1,2}', mymodel.columns[0], mydata.columns[1], mydata.columns[2], mydata.columns[3], mydata.columns[4], mydata.columns[5]) 
+	 * from `output100M.csv` as mydata applying nb100M_3 as mymodel;
+	 *
+	 */
+	@FunctionTemplate(name = "qdm_update_weka", scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE)
+	public static class WekaUpdateTrain implements DrillAggFunc{
+
+		@Param  VarCharHolder operation;
+		@Param  VarCharHolder arguments;
+		@Param 	NullableVarCharHolder classifierTxt;
+		@Param  VarCharHolder features;
+		@Output VarCharHolder out;
+		@Inject DrillBuf tempBuff;
+		@Workspace WekaUpdatableClassifierHolder classifier;
+		@Workspace StringHolder function;
+		@Workspace StringHolder arffHeader;
+		@Workspace  BitHolder firstRun;
+		
+		public void setup() {
+			classifier = new WekaUpdatableClassifierHolder();
+			function = new StringHolder();
+			arffHeader = new StringHolder();
+			firstRun = new BitHolder();
+			classifier.classifier=null;
+			function.value=null;
+			arffHeader.value=null;
+			firstRun.value=0;
+		}
+
+		@Override
+		public void add() {
+			byte[] temp = new byte[features.end - features.start];
+			features.buffer.getBytes(features.start, temp, 0, features.end - features.start);
+			String rowData = new String(temp, com.google.common.base.Charsets.UTF_8);
+			String [] options = null;
+			if(firstRun.value==0){
+				firstRun.value = 1;
+				byte[] operationBuf = new byte[operation.end - operation.start];
+				operation.buffer.getBytes(operation.start, operationBuf, 0, operation.end - operation.start);
+				function.value = new String(operationBuf, com.google.common.base.Charsets.UTF_8).toLowerCase();
+				
+				try{
+					byte[] classifierBuf = new byte[classifierTxt.end - classifierTxt.start];
+					classifierTxt.buffer.getBytes(classifierTxt.start, classifierBuf, 0, classifierTxt.end - classifierTxt.start);
+					java.io.InputStream cis = new java.io.ByteArrayInputStream(classifierBuf);
+					try {
+						if ("ibk".equals(function)){
+							classifier.classifier = (weka.classifiers.lazy.IBk) weka.core.SerializationHelper.read(cis);
+						} else if ("nb".equals(function)){
+							classifier.classifier = (weka.classifiers.bayes.NaiveBayesUpdateable) weka.core.SerializationHelper.read(cis);
+						}
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				}catch(Exception e){
+					e.printStackTrace();
+				}
+				
+				java.util.StringTokenizer st = new java.util.StringTokenizer(rowData, ",");
+				int attributesCount = st.countTokens();
+				java.lang.StringBuilder stBuilder = new java.lang.StringBuilder();
+				stBuilder.append("@"+"RELATION Drill\n");
+				for(int i=0; i< attributesCount-1;i++)
+				{
+					stBuilder.append("@"+"ATTRIBUTE att"+i+" numeric\n");
+				}
+				byte[] argsBuf = new byte[arguments.end - arguments.start];
+				arguments.buffer.getBytes(arguments.start, argsBuf, 0, arguments.end - arguments.start);
+				String classType = "numeric";
+				try {
+					options = weka.core.Utils.splitOptions((new String(argsBuf, com.google.common.base.Charsets.UTF_8)));
+					for(int i=0;i<options.length;i++){
+						if(options[i].indexOf("classes")>0){
+							classType = options[i+1];
+							options[i]="";
+							options[i+1]="";
+						}
+					}
+				} catch (Exception e1) {
+					e1.printStackTrace();
+				}
+				stBuilder.append("@"+"ATTRIBUTE class "+classType+"\n");
+				stBuilder.append("@"+"DATA\n");
+				arffHeader.value = stBuilder.toString();
+			}
+			try {
+				weka.core.Instances instances = new weka.core.Instances(new java.io.StringReader(arffHeader.value+rowData));
+				instances.setClassIndex(instances.numAttributes() - 1);
+				if ("ibk".equals(function.value)){
+					try{
+						((weka.classifiers.lazy.IBk)classifier.classifier).updateClassifier(instances.instance(0));
+					}catch(Exception ex){
+						try{
+							classifier.classifier = new weka.classifiers.lazy.IBk();
+							((weka.classifiers.lazy.IBk)classifier.classifier).setOptions(options);
+							classifier.classifier.buildClassifier(instances);
+						}catch(Exception e){
+							e.printStackTrace();
+						}
+					}
+				} else if ("nb".equals(function.value)){
+					try{
+						((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).updateClassifier(instances.instance(0));
+					}catch(Exception ex){
+						try{
+							classifier.classifier = new weka.classifiers.bayes.NaiveBayesUpdateable();
+							((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).setOptions(options);
+							classifier.classifier.buildClassifier(instances);
+						}catch(Exception e){
+							e.printStackTrace();
+						}
+					}
+				} 
+
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+
+
+		}
+		@Override
+		public void output() {
+			try {
+				java.io.ByteArrayOutputStream os = new java.io.ByteArrayOutputStream();
+				weka.core.SerializationHelper.write(os, classifier.classifier);
+				out.buffer = tempBuff;
+				out.buffer = out.buffer.reallocIfNeeded(os.toByteArray().length);
+				out.buffer.setBytes(0, os.toByteArray());//.setBytes(0,outbuff);
+				out.start=0;
+				out.end=os.toByteArray().length;
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+
+		}
+		@Override
+		public void reset() {
+		}
+	}
+	
+	
+
+	/**
+	 * @author shadi
+	 * 
+	 * Create table xzy as 
+	 * select qdm_test_weka('nb','-classes {1,2}', mymodel.columns[0], mydata.columns[0],....) 
+	 * from `output100M.csv` as mydata applying nb100M_3 as mymodel;
+	 *
+	 */
+	
 	@FunctionTemplate(name = "qdm_test_weka", scope = FunctionScope.SIMPLE, nulls = NullHandling.INTERNAL)
 	public static class WekaTestUpdateable implements DrillSimpleFunc{
 		@Param  VarCharHolder operation;
@@ -348,76 +1191,41 @@ public class Weka {
 		@Workspace StringHolder arffHeader;
 		@Workspace  BitHolder firstRun;
 
-		public void setup(RecordBatch b) {
-//			System.out.println("Shadi: setup start : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
+		public void setup() {
 			classifier = new WekaUpdatableClassifierHolder();
 			arffHeader = new StringHolder();
 			firstRun = new BitHolder();
-//			System.out.println("Shadi: setup classifier end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
 			classifier.classifier=null;
 			arffHeader.value=null;
 			firstRun.value=0;
-//			System.out.println("Shadi: setup classifier null end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-
 		}
 
-
 		public void eval() {
-//			System.out.println("Shadi: eval start : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-
 			byte[] temp = new byte[features.end - features.start];
 			features.buffer.getBytes(features.start, temp, 0, features.end - features.start);
 			String rowData = new String(temp, com.google.common.base.Charsets.UTF_8);
-//			System.out.println("Shadi: eval rowData end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-			//			//System.out.println("rowdata = "+rowData);
-
-			//			boolean firstRun = false;
-			//System.out.println("Shadi: eval check  function "+function+": "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-			//			if(function == null || function.length()==0){
 			if(firstRun.value==0){
 				firstRun.value=1;
 				byte[] operationBuf = new byte[operation.end - operation.start];
 				operation.buffer.getBytes(operation.start, operationBuf, 0, operation.end - operation.start);
 				function = new String(operationBuf, com.google.common.base.Charsets.UTF_8).toLowerCase();
-				//				firstRun = true;
-				//			}
-				System.out.println("Shadi: eval function end :"+ new java.sql.Timestamp((new java.util.Date()).getTime()));
-
-				//				if(firstRun)
-				//				{
 				try{
 					byte[] classifierBuf = new byte[classifierTxt.end - classifierTxt.start];
-//					System.out.println("Shadi: eval classifierBuf end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
 					classifierTxt.buffer.getBytes(classifierTxt.start, classifierBuf, 0, classifierTxt.end - classifierTxt.start);
-//					System.out.println("Shadi: eval classifierTxt.getBytes end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
 					java.io.InputStream cis = new java.io.ByteArrayInputStream(classifierBuf);
-//					System.out.println("Shadi: eval cis end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-					//						//System.out.println("loading classifier from disk");
-
 					try {
 						if ("ibk".equals(function)){
 							classifier.classifier = (weka.classifiers.lazy.IBk) weka.core.SerializationHelper.read(cis);
-							//							//System.out.println("read classifier:"+ classifier.classifier);
 						} else if ("nb".equals(function)){
 							classifier.classifier = (weka.classifiers.bayes.NaiveBayesUpdateable) weka.core.SerializationHelper.read(cis);
-//							System.out.println("Shadi: eval read classifier end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
 						}
 					} catch (Exception e) {
-						//							//System.out.println("Failed to read classifier");
-						//							e.printStackTrace(System.out);
 						e.printStackTrace();
 					}
 				}catch(Exception e){
-					//						e.printStackTrace(System.out);
 					e.printStackTrace();
 				}
-
-
-
-
 				java.util.StringTokenizer st = new java.util.StringTokenizer(rowData, ",");
-//				System.out.println("Shadi: eval tokenizer end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-
 				int attributesCount = st.countTokens();
 				java.lang.StringBuilder stBuilder = new java.lang.StringBuilder();
 				stBuilder.append("@"+"RELATION Drill\n");
@@ -425,141 +1233,218 @@ public class Weka {
 				{
 					stBuilder.append("@"+"ATTRIBUTE att"+i+" numeric\n");
 				}
-//				System.out.println("Shadi: eval header end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-
 				byte[] argsBuf = new byte[arguments.end - arguments.start];
 				arguments.buffer.getBytes(arguments.start, argsBuf, 0, arguments.end - arguments.start);
-//				System.out.println("Shadi: eval argsBuf end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-				//					String[] classes = null;
+//				String[] classes = null;
 				String[] options = null;
 				try {
 					options = weka.core.Utils.splitOptions((new String(argsBuf, com.google.common.base.Charsets.UTF_8)));
 					for(int i=0;i<options.length;i++){
-						//							//System.out.println("option"+i+":"+options[i]);
 						if(options[i].indexOf("classes")>0){
-							//								classes = options[i+1].substring(1, options[i+1].length()-1).split(",");
-
-							//								//System.out.println("class type:"+classes);
+//							classes = options[i+1].substring(1, options[i+1].length()-1).split(",");
 							options[i]="";
 							options[i+1]="";
 						}
 					}
 
 				} catch (Exception e1) {
-					// TODO Auto-generated catch block
 					e1.printStackTrace();
 				}
-
-//				System.out.println("Shadi: eval options end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-
-				//					arffHeader+="@"+"ATTRIBUTE class "+classType+"\n";
-
+//				arffHeader+="@"+"ATTRIBUTE class "+classType+"\n";
 				stBuilder.append("@"+"ATTRIBUTE class numeric\n");
 				stBuilder.append("@"+"DATA\n");
-				//					//System.out.println((arffHeader+rowData));
-
 				arffHeader.value = stBuilder.toString();
-//				System.out.println("Shadi: eval arffHeaer end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
 			}
 
 			try {
-
-
-				// convert String into InputStream
-				//				java.io.InputStream is = new java.io.ByteArrayInputStream((arffHeader.value+rowData+",0").getBytes("UTF-8"));
-				//				//System.out.println("Shadi: eval is end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-				//
-				//				// read it with BufferedReader
-				//				java.io.BufferedReader datafile = new java.io.BufferedReader(new java.io.InputStreamReader(is));
-				//				//System.out.println("Shadi: eval datafile end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-				//
-				//
-				//				weka.core.Instances instances = new weka.core.Instances(datafile);
-				//				
 				weka.core.Instances instances = new weka.core.Instances(new java.io.StringReader(arffHeader.value+rowData+",0"));
-//System.out.println("instances="+instances);
-
-//				System.out.println("Shadi: eval instances end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
 				instances.setClassIndex(instances.numAttributes() - 1);
-//				System.out.println("Shadi: eval classindex end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-
 				String output="";
-				//					if(classType.equalsIgnoreCase("numeric"))
-				//										out.value = classifier.classifier.classifyInstance(instances.instance(0));
-				//					else
-				//					{
 				double[] predictions = classifier.classifier.distributionForInstance(instances.instance(0));
-//				System.out.println("Shadi: eval predictions end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-//				System.out.println("predictions.length="+predictions.length);
 				if(predictions.length==1){
 					output = ""+predictions[0];
 				} else {
-
-					//							for(int i=0;i<predictions.length;i++){
-					//								//System.out.print(predictions[i]+",");
-					//							}
-					//					java.util.List b = java.util.Arrays.asList(org.apache.commons.lang.ArrayUtils.toObject(predictions));
-
-					//					        //System.out.println("\nmax="+java.util.Collections.max(b));
-					//					        //System.out.println("index="+b.indexOf(java.util.Collections.max(b)));
-
+//					java.util.List b = java.util.Arrays.asList(org.apache.commons.lang.ArrayUtils.toObject(predictions));
 					double max = -1;
 					for(int i=0;i<predictions.length;i++){
-//						System.out.print("prediction ["+i+"] = "+predictions[i]+" & ");
-						
 						if(predictions[i]>max){
 							max=predictions[i];
-							output=""+ (i+1);
-							
+							output=""+ (i+1);							
 						}
 					}
-					
-//					System.out.println(" =====> output = "+output+" and max = "+max);
-					
-//					System.out.println("Shadi: eval after output loop : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-
-					//					if(classes!=null){
-					////						output= classes[b.indexOf(java.util.Collections.max(b))];
-					//						double max = -1;
-					//						for(int i=0;i<predictions.length;i++){
-					//							if(predictions[i]>max){
-					//								output=classes[i];
-					//							}
-					//						}
-					//					}else{
-					////						output= ""+(b.indexOf(java.util.Collections.max(b))+1);
-					//						double max = -1;
-					//						for(int i=0;i<predictions.length;i++){
-					//							if(predictions[i]>max){
-					//								output=""+ (i+1);
-					//							}
-					//						}
-					//					}
+//					if(classes!=null){
+////						output= classes[b.indexOf(java.util.Collections.max(b))];
+//						double max = -1;
+//						for(int i=0;i<predictions.length;i++){
+//							if(predictions[i]>max){
+//								output=classes[i];
+//							}
+//						}
+//					}else{
+////						output= ""+(b.indexOf(java.util.Collections.max(b))+1);
+//						double max = -1;
+//						for(int i=0;i<predictions.length;i++){
+//							if(predictions[i]>max){
+//								output=""+ (i+1);
+//							}
+//						}
+//					}
 				}
-				//System.out.println("Shadi: eval parse predictions end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-				//					}
 
 				out.buffer = tempBuff;
-//				System.out.println("Shadi: eval out.buffer end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-				//String output = "The "+modelName+" model was successfully created.\n";
-				//byte[] outbuff = (os.toString(com.google.common.base.Charsets.UTF_8).getBytes(com.google.common.base.Charsets.UTF_8));
 				out.buffer = out.buffer.reallocIfNeeded(output.getBytes().length);
-//				System.out.println("Shadi: eval out realloc end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
 				out.buffer.setBytes(0, output.getBytes());//.setBytes(0,outbuff);
-//				System.out.println("Shadi: eval out.setBytes end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
 				out.start=0;
 				out.end=output.getBytes().length;
-//				System.out.println("Shadi: eval start end : "+new java.sql.Timestamp((new java.util.Date()).getTime()));
-				//					//System.out.println("Shadi:"+ output);
-
 			}catch(Exception e)
 			{
 				e.printStackTrace();
 			}
-
-
 		}
 	}
+	
+	
+	/**
+	 * @author shadi
+	 * 
+	 * Create table xzy as 
+	 * select qdm_test_weka('nb','-classes {1,2}', mymodel.columns[0], mydata.columns) 
+	 * from `output100M.csv` as mydata applying nb100M_3 as mymodel;
+	 *
+	 */
+	
+	@FunctionTemplate(name = "qdm_test_weka", scope = FunctionScope.SIMPLE, nulls = NullHandling.INTERNAL)
+	public static class WekaTestRepeatedUpdateable implements DrillSimpleFunc{
+		@Param  VarCharHolder operation;
+		@Param  VarCharHolder arguments;
+		@Param 	NullableVarCharHolder classifierTxt;
+		@Param  RepeatedVarCharHolder features;
+		@Output VarCharHolder out;
+		@Inject DrillBuf tempBuff;
+		@Workspace WekaUpdatableClassifierHolder classifier;
+		@Workspace String function;
+		@Workspace StringHolder arffHeader;
+		@Workspace  BitHolder firstRun;
+		@Workspace VarCharHolder currVal;
+
+		public void setup() {
+			classifier = new WekaUpdatableClassifierHolder();
+			arffHeader = new StringHolder();
+			firstRun = new BitHolder();
+			classifier.classifier=null;
+			arffHeader.value=null;
+			firstRun.value=0;
+			currVal = new VarCharHolder();
+		}
+
+		public void eval() {
+			byte[] temp = new byte[features.end - features.start];		
+			java.lang.StringBuilder rowBuilder = new java.lang.StringBuilder();
+		    for (int i = features.start; i < features.end; i++) {
+		        features.vector.getAccessor().get(i, currVal);
+		        rowBuilder.append(org.apache.drill.exec.expr.fn.impl.StringFunctionHelpers.toStringFromUTF8(currVal.start, currVal.end, currVal.buffer)+",");
+		    } 
+		  	String rowData = rowBuilder.substring(0, rowBuilder.length()-1);
+			if(firstRun.value==0){
+				firstRun.value=1;
+				byte[] operationBuf = new byte[operation.end - operation.start];
+				operation.buffer.getBytes(operation.start, operationBuf, 0, operation.end - operation.start);
+				function = new String(operationBuf, com.google.common.base.Charsets.UTF_8).toLowerCase();
+				try{
+					byte[] classifierBuf = new byte[classifierTxt.end - classifierTxt.start];
+					classifierTxt.buffer.getBytes(classifierTxt.start, classifierBuf, 0, classifierTxt.end - classifierTxt.start);
+					java.io.InputStream cis = new java.io.ByteArrayInputStream(classifierBuf);
+					try {
+						if ("ibk".equals(function)){
+							classifier.classifier = (weka.classifiers.lazy.IBk) weka.core.SerializationHelper.read(cis);
+						} else if ("nb".equals(function)){
+							classifier.classifier = (weka.classifiers.bayes.NaiveBayesUpdateable) weka.core.SerializationHelper.read(cis);
+						}
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				}catch(Exception e){
+					e.printStackTrace();
+				}
+				java.util.StringTokenizer st = new java.util.StringTokenizer(rowData, ",");
+				int attributesCount = st.countTokens();
+				java.lang.StringBuilder stBuilder = new java.lang.StringBuilder();
+				stBuilder.append("@"+"RELATION Drill\n");
+				for(int i=0; i< attributesCount-1;i++)
+				{
+					stBuilder.append("@"+"ATTRIBUTE att"+i+" numeric\n");
+				}
+				byte[] argsBuf = new byte[arguments.end - arguments.start];
+				arguments.buffer.getBytes(arguments.start, argsBuf, 0, arguments.end - arguments.start);
+//				String[] classes = null;
+				String[] options = null;
+				try {
+					options = weka.core.Utils.splitOptions((new String(argsBuf, com.google.common.base.Charsets.UTF_8)));
+					for(int i=0;i<options.length;i++){
+						if(options[i].indexOf("classes")>0){
+//							classes = options[i+1].substring(1, options[i+1].length()-1).split(",");
+							options[i]="";
+							options[i+1]="";
+						}
+					}
+
+				} catch (Exception e1) {
+					e1.printStackTrace();
+				}
+//				arffHeader+="@"+"ATTRIBUTE class "+classType+"\n";
+				stBuilder.append("@"+"ATTRIBUTE class numeric\n");
+				stBuilder.append("@"+"DATA\n");
+				arffHeader.value = stBuilder.toString();
+			}
+
+			try {
+				weka.core.Instances instances = new weka.core.Instances(new java.io.StringReader(arffHeader.value+rowData));
+				
+				instances.setClassIndex(instances.numAttributes() - 1);
+				String output="";
+				double[] predictions = classifier.classifier.distributionForInstance(instances.instance(0));
+				if(predictions.length==1){
+					output = ""+predictions[0];
+				} else {
+//					java.util.List b = java.util.Arrays.asList(org.apache.commons.lang.ArrayUtils.toObject(predictions));
+					double max = -1;
+					for(int i=0;i<predictions.length;i++){
+						if(predictions[i]>max){
+							max=predictions[i];
+							output=""+ (i+1);							
+						}
+					}
+//					if(classes!=null){
+////						output= classes[b.indexOf(java.util.Collections.max(b))];
+//						double max = -1;
+//						for(int i=0;i<predictions.length;i++){
+//							if(predictions[i]>max){
+//								output=classes[i];
+//							}
+//						}
+//					}else{
+////						output= ""+(b.indexOf(java.util.Collections.max(b))+1);
+//						double max = -1;
+//						for(int i=0;i<predictions.length;i++){
+//							if(predictions[i]>max){
+//								output=""+ (i+1);
+//							}
+//						}
+//					}
+				}
+
+				out.buffer = tempBuff;
+				out.buffer = out.buffer.reallocIfNeeded(output.getBytes().length);
+				out.buffer.setBytes(0, output.getBytes());//.setBytes(0,outbuff);
+				out.start=0;
+				out.end=output.getBytes().length;
+			}catch(Exception e)
+			{
+				e.printStackTrace();
+			}
+		}
+	}
+
 
 }
 

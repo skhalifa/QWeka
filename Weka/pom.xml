@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>Weka</groupId>
   <artifactId>Weka</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
+  <version>0.9-SNAPSHOT</version>
   <build>
     <sourceDirectory>src</sourceDirectory>
     <plugins>
@@ -41,15 +41,29 @@
     </resources>
   </build>
   <dependencies>
+  <!-- 
   	<dependency>
   		<groupId>org.apache.drill.exec</groupId>
   		<artifactId>drill-java-exec</artifactId>
   		<version>0.9-SNAPSHOT</version>
   	</dependency>
+  	-->
+	<dependency>
+		<groupId>org.apache.drill.exec</groupId>
+		<artifactId>drill-java-exec</artifactId>
+		<version>1.2.0</version>
+	</dependency>
+  	<dependency>
+	<groupId>nz.ac.waikato.cms.weka</groupId>
+		<artifactId>weka-dev</artifactId>
+		<version>3.7.13</version>
+	</dependency>
+  	<!-- 
   	<dependency>
   		<groupId>nz.ac.waikato.cms.weka</groupId>
   		<artifactId>weka-stable</artifactId>
   		<version>3.6.12</version>
   	</dependency>
+  	-->
   </dependencies>
 </project>
