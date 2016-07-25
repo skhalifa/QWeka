@@ -13,7 +13,7 @@ import org.apache.drill.exec.expr.holders.ValueHolder;
 
 public final class NullableStringHolder implements ValueHolder{
   
-  public static final MajorType TYPE = Types.required(MinorType.GENERIC_OBJECT);
+  public static final MajorType TYPE = Types.required(MinorType.VARCHAR);
   
   public MajorType getType() {return TYPE;}
   
