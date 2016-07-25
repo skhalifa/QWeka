@@ -1,6 +1,8 @@
 package ca.queensu.cs.aggregate;
 
 
+import java.nio.charset.Charset;
+
 import io.netty.buffer.DrillBuf;
 
 import javax.inject.Inject;
@@ -19,7 +21,6 @@ import org.apache.drill.exec.expr.holders.NullableVarCharHolder;
 import org.apache.drill.exec.expr.holders.ObjectHolder;
 import org.apache.drill.exec.expr.holders.RepeatedVarCharHolder;
 import org.apache.drill.exec.expr.holders.VarCharHolder;
-import org.apache.drill.exec.memory.Accountor;
 
 
 public class Weka {
@@ -66,7 +67,7 @@ public class Weka {
 
 		@Override
 		public void output() {
-			System.out.println("In WekaTrainSupportedArgs output");
+//			System.out.println("In WekaTrainSupportedArgs output");
 			out.buffer = tempBuff;
 			byte[] operationBuf = new byte[operationStringLength.value];
 			operationHolder.buffer.getBytes(0, operationBuf, 0, operationStringLength.value);
@@ -178,8 +179,8 @@ public class Weka {
 	 *
 	 */
 
-	@FunctionTemplate(name = "qdm_shuffle", scope = FunctionScope.SIMPLE, nulls = NullHandling.INTERNAL)
-	public static class WekaShuffle implements DrillSimpleFunc{
+	@FunctionTemplate(name = "qdm_ladp", scope = FunctionScope.SIMPLE, nulls = NullHandling.INTERNAL)
+	public static class WekaLADP implements DrillSimpleFunc{
 		@Param	IntHolder NumWorkers;
 		@Param  VarCharHolder features;
 
@@ -246,8 +247,8 @@ public class Weka {
 	 * select label, count(*) from `output100M100.csv` group by label
 	 */
 
-	@FunctionTemplate(name = "qdm_shuffle", scope = FunctionScope.SIMPLE, nulls = NullHandling.INTERNAL)
-	public static class WekaShuffleRepeated implements DrillSimpleFunc{
+	@FunctionTemplate(name = "qdm_ladp", scope = FunctionScope.SIMPLE, nulls = NullHandling.INTERNAL)
+	public static class WekaLADPRepeated implements DrillSimpleFunc{
 		@Param	IntHolder NumWorkers;
 		@Param  RepeatedVarCharHolder features;
 
@@ -304,7 +305,7 @@ public class Weka {
 	 */
 
 
-	@FunctionTemplate(name = "qdm_ensemble_train_weka", scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE)
+	@FunctionTemplate(name = "qdm_ensemble_weka", scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE)
 	public static class WekaTrainEnsembleColumns implements DrillAggFunc{
 		@Param  VarCharHolder operation;
 		@Param  VarCharHolder arguments;
@@ -468,7 +469,7 @@ public class Weka {
 						//						((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).setOptions(options);
 						m = c.getMethod("buildClassifier", weka.core.Instances.class);
 						m.invoke(Class.forName(((String)function.obj)).cast(classifier.obj),instances);
-						System.out.println("In WekaTrainEnsemble1Updateable build MODEL done");
+//						System.out.println("In WekaTrainEnsemble1Updateable build MODEL done");
 
 						if(updatable.value != 1) {
 							if(instancesHolder.obj == null){
@@ -487,10 +488,10 @@ public class Weka {
 						if(updatable.value == 1) {
 							//					((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).updateClassifier(instances.instance(0));
 
-							System.out.println("In WekaTrainEnsemble1Updateable add MODEL updatable");
+//							System.out.println("In WekaTrainEnsemble1Updateable add MODEL updatable");
 							java.lang.reflect.Method m = c.getMethod("updateClassifier", weka.core.Instance.class);
 							m.invoke(Class.forName(((String)function.obj)).cast(classifier.obj),instances.instance(0));
-							System.out.println("In WekaTrainEnsemble1Updateable updatable MODEL updated");
+//							System.out.println("In WekaTrainEnsemble1Updateable updatable MODEL updated");
 							//							NaiveBayesUpdateable
 						} else {
 							//							ZeroR
@@ -507,8 +508,26 @@ public class Weka {
 							//							System.out.println("In WekaTrainAgg1Updateable rebuilding MODEL updated");
 						}
 
-					}catch(Exception ex){
-						ex.printStackTrace();
+					}catch(OutOfMemoryError error){
+						
+						int MegaBytes = 1024 * 1024;
+						 System.out.println("Instances has: "+((weka.core.Instances)instancesHolder.obj).size()+ " records causing Out of memory error");
+						 long totalMemory = Runtime.getRuntime().totalMemory() / MegaBytes;
+						 long maxMemory = Runtime.getRuntime().maxMemory() / MegaBytes;
+						 long freeMemory = Runtime.getRuntime().freeMemory() / MegaBytes;
+
+
+						 System.out.println("totalMemory in JVM shows current size of java heap:"+totalMemory);
+						 System.out.println("maxMemory in JVM: " + maxMemory);
+						 System.out.println("freeMemory in JVM: " + freeMemory);
+						 System.out.println("Used Memory in JVM: " + (totalMemory - freeMemory));
+						 
+//Write instances to disk and reinitialize ((weka.core.Instances)instancesHolder.obj)???????????????????????????????????????????
+//						 PrintWriter writer = new PrintWriter(new BufferedWriter(new FileWriter("1.tmp", true)));
+//						 for(int j=0;j<objects.size();j++)
+//							 writer.append(objects.get(j)+"\n");
+//						 writer.close();
+//						 objects = new ArrayList<String>();
 
 					}
 				}
@@ -607,12 +626,14 @@ public class Weka {
 	 *
 	 */
 
-	@FunctionTemplate(name = "qdm_ensemble_train_weka", scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE)
+	@FunctionTemplate(name = "qdm_ensemble_weka", scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE)
 	public static class WekaTrainEnsemble implements DrillAggFunc{
 
 		@Param  VarCharHolder operation;
 		@Param  VarCharHolder arguments;
 		@Param  RepeatedVarCharHolder features;
+		@Param  VarCharHolder sample;
+		
 		@Output VarCharHolder out;
 		@Inject DrillBuf tempBuff;
 		@Workspace ObjectHolder classifier;
@@ -642,6 +663,12 @@ public class Weka {
 
 		@Override
 		public void add() {
+			
+			byte[] temp = new byte[sample.end - sample.start];
+			sample.buffer.getBytes(sample.start, temp, 0, sample.end - sample.start);
+			
+
+			
 			java.lang.StringBuilder rowBuilder = new java.lang.StringBuilder();
 			VarCharHolder currVal = new VarCharHolder();
 			for (int i = features.start; i < features.end; i++) {
@@ -744,7 +771,7 @@ public class Weka {
 			//Start every run
 			try {
 				weka.core.Instances instances = new weka.core.Instances(new java.io.StringReader(((String)arffHeader.obj)+rowData));
-
+				
 				instances.setClassIndex(instances.numAttributes() - 1);
 
 				Class<?> c = Class.forName(((String)function.obj));
@@ -761,15 +788,17 @@ public class Weka {
 
 						m = c.getMethod("buildClassifier", weka.core.Instances.class);
 						m.invoke(Class.forName(((String)function.obj)).cast(classifier.obj),instances);
-						System.out.println("In WekaTrainEnsemble1Updateable build MODEL done");
+
+//						System.out.println("In WekaTrainEnsemble1Updateable build MODEL done");
 
 						if(updatable.value != 1) {
 							if(instancesHolder.obj == null){
 								instancesHolder.obj = instances;
 							} else {
+
 								((weka.core.Instances)instancesHolder.obj).add(instances.get(0));
 							}
-							System.out.println("In WekaTrainEnsemble1Updateable build MODEL Not updatable add instances");
+//							System.out.println("In WekaTrainEnsemble1Updateable build MODEL Not updatable add instances");
 						}
 
 					}catch(Exception e){
@@ -781,31 +810,135 @@ public class Weka {
 						if(updatable.value == 1) {
 							//					((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).updateClassifier(instances.instance(0));
 
-							System.out.println("In WekaTrainEnsemble1Updateable add MODEL updatable");
+//							System.out.println("In WekaTrainEnsemble1Updateable add MODEL updatable");
 							java.lang.reflect.Method m = c.getMethod("updateClassifier", weka.core.Instance.class);
 							m.invoke(Class.forName(((String)function.obj)).cast(classifier.obj),instances.instance(0));
-							System.out.println("In WekaTrainEnsemble1Updateable updatable MODEL updated");
+//							System.out.println("In WekaTrainEnsemble1Updateable updatable MODEL updated");
 							//							NaiveBayesUpdateable
 						} else {
 							//							ZeroR
 
-							if(instancesHolder.obj == null){
-								instancesHolder.obj = instances;
-							} else {
-								((weka.core.Instances)instancesHolder.obj).add(instances.get(0));
-							}
+							try {
+								
+								
 
+								if(instancesHolder.obj == null){
+																	
+									instancesHolder.obj = instances;
+								} else {
+									
+									if(aggregatable.value > 0 && ((weka.core.Instances)instancesHolder.obj).size() > 10000){
+										
+										if(aggregatable.value == 1){
+											classifier.obj = (weka.classifiers.Classifier) c.newInstance(); 
+											
+											java.lang.reflect.Method m = c.getMethod("setOptions", String[].class);
+											m.invoke(Class.forName(((String)function.obj)).cast(classifier.obj), new Object[] {options});
+	
+											m = c.getMethod("buildClassifier", weka.core.Instances.class);
+											m.invoke(Class.forName(((String)function.obj)).cast(classifier.obj),((weka.core.Instances)instancesHolder.obj));
+//											System.out.println("Init Aggregation");
+											aggregatable.value = 2;
+											
+										} else {
+											
+											weka.classifiers.Classifier newClassifier = (weka.classifiers.Classifier) c.newInstance(); 
+	
+											java.lang.reflect.Method m = c.getMethod("setOptions", String[].class);
+											m.invoke(Class.forName(((String)function.obj)).cast(newClassifier), new Object[] {options});
+	
+											m = c.getMethod("buildClassifier", weka.core.Instances.class);
+											m.invoke(Class.forName(((String)function.obj)).cast(newClassifier),((weka.core.Instances)instancesHolder.obj));
+	//										System.out.println("Aggregation instance class index is:"+((weka.core.Instances)instancesHolder.obj).classIndex());
+	
+											try{
+												m = c.getMethod("aggregate",c);
+												m.invoke(Class.forName((String)function.obj).cast(classifier.obj),Class.forName((String)function.obj).cast(newClassifier));
+												//									System.out.println("In WekaTrainAgg2Updateable add MODEL aggregated");
+											} catch (java.lang.NoSuchMethodException ex){
+												m = c.getMethod("aggregate",c.getSuperclass());
+												m.invoke(Class.forName((String)function.obj).cast(classifier.obj),Class.forName((String)function.obj).cast(newClassifier));
+												//									System.out.println("In WekaTrainAgg2Updateable add MODEL parent aggregated");
+											}
+//											System.out.println("Do Aggregation");
+										
+										}
+										
+										// reinitialize instancesHolder.obj
+										((weka.core.Instances)instancesHolder.obj).delete();
+										instancesHolder.obj = instances;
+
+									} else {
+									//TODO: need handing for memory allocation
+										((weka.core.Instances)instancesHolder.obj).add(instances.get(0));
+									}
+								}
+								
+								
+								
+							
+//								System.out.println("Sample: "+new String(temp, com.google.common.base.Charsets.UTF_8)+
+//										" has :"+((weka.core.Instances)instancesHolder.obj).size()+
+//										"instances on IP:"+java.net.InetAddress.getLocalHost().getHostAddress()+" and thread: "+java.lang.Thread.currentThread().getId());
+								
+							} catch (OutOfMemoryError error){
+									
+									int MegaBytes = 1024 * 1024;
+									 System.out.println("In 1: Sample: "+new String(temp, com.google.common.base.Charsets.UTF_8)+" - Instances has: "+((weka.core.Instances)instancesHolder.obj).size()+ " records causing Out of memory error");
+									 long totalMemory = Runtime.getRuntime().totalMemory() / MegaBytes;
+									 long maxMemory = Runtime.getRuntime().maxMemory() / MegaBytes;
+									 long freeMemory = Runtime.getRuntime().freeMemory() / MegaBytes;
+
+
+									 System.out.println("totalMemory in JVM shows current size of java heap:"+totalMemory);
+									 System.out.println("maxMemory in JVM: " + maxMemory);
+									 System.out.println("freeMemory in JVM: " + freeMemory);
+									 System.out.println("Used Memory in JVM: " + (totalMemory - freeMemory));
+									 
+// Write instances to disk and reinitialize ((weka.core.Instances)instancesHolder.obj)???????????????????????????????????????????
+//									 PrintWriter writer = new PrintWriter(new BufferedWriter(new FileWriter("1.tmp", true)));
+//									 for(int j=0;j<objects.size();j++)
+//										 writer.append(objects.get(j)+"\n");
+//									 writer.close();
+//									 objects = new ArrayList<String>();
+
+							}
+//							System.out.println("In WekaTrainEnsemble1Updateable Not updatable MODEL instance added "+((weka.core.Instances)instancesHolder.obj).size());
 
 						}
 
 					}catch(Exception ex){
 						ex.printStackTrace();
+						int MegaBytes = 1024 * 1024;
+						 System.out.println("In 2: Sample: "+new String(temp, com.google.common.base.Charsets.UTF_8)+" - Instances has: "+((weka.core.Instances)instancesHolder.obj).size()+ " records causing Out of memory error");
+						 long totalMemory = Runtime.getRuntime().totalMemory() / MegaBytes;
+						 long maxMemory = Runtime.getRuntime().maxMemory() / MegaBytes;
+						 long freeMemory = Runtime.getRuntime().freeMemory() / MegaBytes;
+
+
+						 System.out.println("totalMemory in JVM shows current size of java heap:"+totalMemory);
+						 System.out.println("maxMemory in JVM: " + maxMemory);
+						 System.out.println("freeMemory in JVM: " + freeMemory);
+						 System.out.println("Used Memory in JVM: " + (totalMemory - freeMemory));
+						 
 
 					}
 				}
 
 			} catch (Exception e) {
 				e.printStackTrace();
+				int MegaBytes = 1024 * 1024;
+				 System.out.println("In 3: Sample: "+new String(temp, com.google.common.base.Charsets.UTF_8)+" - Instances has: "+((weka.core.Instances)instancesHolder.obj).size()+ " records causing Out of memory error");
+				 long totalMemory = Runtime.getRuntime().totalMemory() / MegaBytes;
+				 long maxMemory = Runtime.getRuntime().maxMemory() / MegaBytes;
+				 long freeMemory = Runtime.getRuntime().freeMemory() / MegaBytes;
+
+
+				 System.out.println("totalMemory in JVM shows current size of java heap:"+totalMemory);
+				 System.out.println("maxMemory in JVM: " + maxMemory);
+				 System.out.println("freeMemory in JVM: " + freeMemory);
+				 System.out.println("Used Memory in JVM: " + (totalMemory - freeMemory));
+				 
 			}
 
 		}
@@ -816,10 +949,53 @@ public class Weka {
 				if(instancesHolder.obj != null){
 					System.out.println((classifier.obj != null)+" - "+ ((String)function.obj)+" - In WekaTrainEnsemble1Updateable output rebuild MODEL using instances:"+((weka.core.Instances)instancesHolder.obj).numInstances());
 					Class<?> c = Class.forName(((String)function.obj));
-					java.lang.reflect.Method m = c.getMethod("buildClassifier", weka.core.Instances.class);
-					m.invoke(Class.forName(((String)function.obj)).cast(classifier.obj),((weka.core.Instances)instancesHolder.obj));
-					System.out.println("In WekaTrainEnsemble1Updateable output rebuilding MODEL updated");
+					
+					if(aggregatable.value > 0){
+						System.out.println("In ensemble1 agg in out");
+						
+						if(aggregatable.value == 1){
+							classifier.obj = (weka.classifiers.Classifier) c.newInstance(); 
+							
+							java.lang.reflect.Method m = c.getMethod("buildClassifier", weka.core.Instances.class);
+							m.invoke(Class.forName(((String)function.obj)).cast(classifier.obj),((weka.core.Instances)instancesHolder.obj));
+							System.out.println("Init Aggregation");
+							aggregatable.value = 2;
+							
+						} else {
+							
+							weka.classifiers.Classifier newClassifier = (weka.classifiers.Classifier) c.newInstance(); 
+							
+							java.lang.reflect.Method m = c.getMethod("buildClassifier", weka.core.Instances.class);
+							m.invoke(Class.forName(((String)function.obj)).cast(newClassifier),((weka.core.Instances)instancesHolder.obj));
+//										System.out.println("Aggregation instance class index is:"+((weka.core.Instances)instancesHolder.obj).classIndex());
 
+							try{
+								m = c.getMethod("aggregate",c);
+								m.invoke(Class.forName((String)function.obj).cast(classifier.obj),Class.forName((String)function.obj).cast(newClassifier));
+								//									System.out.println("In WekaTrainAgg2Updateable add MODEL aggregated");
+							} catch (java.lang.NoSuchMethodException ex){
+								m = c.getMethod("aggregate",c.getSuperclass());
+								m.invoke(Class.forName((String)function.obj).cast(classifier.obj),Class.forName((String)function.obj).cast(newClassifier));
+								//									System.out.println("In WekaTrainAgg2Updateable add MODEL parent aggregated");
+							}
+							System.out.println("Do Aggregation");
+						
+						}
+						
+						// reinitialize instancesHolder.obj
+						((weka.core.Instances)instancesHolder.obj).delete();
+						instancesHolder.obj = null;
+						
+						System.out.println("In ensemble1 agg in out DONE");
+
+					} else {
+					
+						//TODO: Handle the memory for this case
+						java.lang.reflect.Method m = c.getMethod("buildClassifier", weka.core.Instances.class);
+						
+						m.invoke(Class.forName(((String)function.obj)).cast(classifier.obj),(weka.core.Instances)instancesHolder.obj);
+					}
+					System.out.println("In WekaTrainEnsemble1Updateable output rebuilding MODEL updated");
 				} 
 
 
@@ -836,6 +1012,18 @@ public class Weka {
 				out.end=data.length;
 			} catch (Exception e) {
 				e.printStackTrace();
+				int MegaBytes = 1024 * 1024;
+				 System.out.println("In 4:  ");//Instances has: "+((weka.core.Instances)instancesHolder.obj).size()+ " records causing Out of memory error");
+				 long totalMemory = Runtime.getRuntime().totalMemory() / MegaBytes;
+				 long maxMemory = Runtime.getRuntime().maxMemory() / MegaBytes;
+				 long freeMemory = Runtime.getRuntime().freeMemory() / MegaBytes;
+
+
+				 System.out.println("totalMemory in JVM shows current size of java heap:"+totalMemory);
+				 System.out.println("maxMemory in JVM: " + maxMemory);
+				 System.out.println("freeMemory in JVM: " + freeMemory);
+				 System.out.println("Used Memory in JVM: " + (totalMemory - freeMemory));
+				 
 			}
 
 		}
@@ -850,12 +1038,12 @@ public class Weka {
 	 * 
 	 * AGGREGATOR FOR
 	 * Train model xzy as 
-	 * select qdm_train_weka('nb','-classes {1,2}', columns) 
+	 * select qdm_ensemble_train_weka('nb','-classes {1,2}', columns) 
 	 * from `output100M.csv` as mydata;
 	 * 
 	 */
 
-	@FunctionTemplate(name = "qdm_ensemble_train_weka", scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE)
+	@FunctionTemplate(name = "qdm_ensemble_weka", scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE)
 	public static class WekaTrainEnsemble2 implements DrillAggFunc{
 
 		@Param  VarCharHolder model;
@@ -898,7 +1086,7 @@ public class Weka {
 			//			System.out.println("In WekaTrainAgg2Updateable add (input legnth): "+input.length()+" - input.contains('|Info|'): "+input.indexOf("|Info|"));
 
 			//			if(input.length()>100 && !input.contains("|Info|") && input.indexOf("weka.classifiers")>-1){
-			System.out.println("In WekaTrainEnsemble2Updateable add In Model agg");
+//			System.out.println("In WekaTrainEnsemble2Updateable add In Model agg");
 
 			if(firstRun.value == 0){
 				firstRun.value = 1;
@@ -1029,158 +1217,158 @@ public class Weka {
 	 *
 	 */
 
-	@FunctionTemplate(name = "qdm_AggEnsemble_weka", scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE)
-	public static class WekaTrainEnsembleAgg implements DrillAggFunc{
-
-		@Param  VarCharHolder operation;
-		@Param  VarCharHolder arguments;
-		@Param  VarCharHolder model;
-		@Output VarCharHolder out;
-		@Inject DrillBuf tempBuff;
-		@Workspace WekaUpdatableClassifierHolder classifierAgg;
-		@Workspace StringHolder function;
-		@Workspace IntHolder aggregatable;
-		@Workspace BitHolder firstRun;
-
-
-
-
-		public void setup() {
-			classifierAgg = new WekaUpdatableClassifierHolder();
-			function = new StringHolder();
-			aggregatable = new IntHolder();
-			classifierAgg.classifier=null;
-			function.value=null;
-			aggregatable.value=-1;
-			firstRun.value = 0;
-
-
-		}
-
-		@Override
-		public void add() {
-			//			System.out.println("In WekaTrainAgg2Updateable add");
-
-
-
-
-			byte[] classifierBuf = new byte[model.end - model.start];
-			model.buffer.getBytes(model.start, classifierBuf, 0, model.end - model.start);
-
-
-			String input = new String(classifierBuf, com.google.common.base.Charsets.UTF_8);
-			System.out.println("In WekaTrainAgg2Updateable add In Model agg");
-
-			String classType = "numeric";
-			String [] options = null;
-
-			if(firstRun.value == 0){
-				firstRun.value = 1;
-
-				byte[] operationBuf = new byte[operation.end - operation.start];
-				operation.buffer.getBytes(operation.start, operationBuf, 0, operation.end - operation.start);
-				function.value = new String(operationBuf, com.google.common.base.Charsets.UTF_8).toLowerCase();
-
-				org.reflections.Reflections reflections = new org.reflections.Reflections("weka.classifiers"); 
-				java.util.Set<Class<? extends weka.classifiers.Classifier>> subTypes = 
-						reflections.getSubTypesOf(weka.classifiers.Classifier.class);
-
-				java.util.Iterator<Class<? extends weka.classifiers.Classifier>> subTypesIterator = subTypes.iterator();
-				boolean done = false;
-				while(subTypesIterator.hasNext() && !done){
-					String className = subTypesIterator.next().toString().substring(6);
-					//					System.out.println(className.substring(className.indexOf("weka")));
-					try {
-						Class c = Class.forName(className.substring(className.indexOf("weka")));
-						if(((String)function.value).equalsIgnoreCase(c.getSimpleName())){
-							function.value = c.getCanonicalName();
-							done =true;
-						}
-					} catch (ClassNotFoundException e) {
-						e.printStackTrace();
-					}
-
-				}
-
-
-				byte[] argsBuf = new byte[arguments.end - arguments.start];
-				arguments.buffer.getBytes(arguments.start, argsBuf, 0, arguments.end - arguments.start);
-
-				try {
-					options = weka.core.Utils.splitOptions((new String(argsBuf, com.google.common.base.Charsets.UTF_8)));
-					for(int i=0;i<options.length;i++){
-						if(options[i].indexOf("classes")>0){
-							classType = options[i+1];
-							options[i]="";
-							options[i+1]="";
-						}
-					}
-				} catch (Exception e1) {
-					e1.printStackTrace();
-				}
-
-
-			}
-			try{
-				java.io.InputStream cis = new java.io.ByteArrayInputStream(classifierBuf);
-				try {
-					Class<?> c = Class.forName(function.value);
-
-					weka.classifiers.Classifier classifier = (weka.classifiers.Classifier) weka.core.SerializationHelper.read(cis);
-
-					//						System.out.println("In WekaTrainAgg2Updateable add MODEL read");
-
-					if(classifierAgg.classifier==null){
-						System.out.println("In WekaEnsembleAgg2Updateable add MODEL new vote ");
-
-						classifierAgg.classifier = (weka.classifiers.Classifier) c.newInstance(); 
-
-						java.lang.reflect.Method m = c.getMethod("setOptions", String[].class);
-						m.invoke(Class.forName(((String)function.value)).cast(classifierAgg.classifier), new Object[] {options});
-						
-					} 
-
-
-					System.out.println("In WekaEnsembleAgg2Updateable add MODEL update");
-					java.lang.reflect.Method m = c.getMethod("addPreBuiltClassifier", weka.classifiers.Classifier.class);
-					m.invoke(Class.forName(((String)function.value)).cast(classifierAgg.classifier),classifier);
-					System.out.println("In WekaEnsembleAgg21Updateable build MODEL done");
-					
-
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-			}catch(Exception e){
-				e.printStackTrace();
-			}
-
-
-
-		}
-
-		@Override
-		public void output() {
-			try {
-
-				System.out.println("In WekaEnsembleAgg2Updateable out writing agg model");
-				java.io.ByteArrayOutputStream os = new java.io.ByteArrayOutputStream();
-				weka.core.SerializationHelper.write(os, classifierAgg.classifier);
-				tempBuff = tempBuff.reallocIfNeeded(os.toByteArray().length);
-				out.buffer = tempBuff;
-				out.buffer.setBytes(0, os.toByteArray());//.setBytes(0,outbuff);
-				out.start=0;
-				out.end=os.toByteArray().length;
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-
-		}
-		@Override
-		public void reset() {
-		}
-
-
-	}
+//	@FunctionTemplate(name = "qdm_AggEnsemble_weka", scope = FunctionTemplate.FunctionScope.POINT_AGGREGATE)
+//	public static class WekaTrainEnsembleAgg implements DrillAggFunc{
+//
+//		@Param  VarCharHolder operation;
+//		@Param  VarCharHolder arguments;
+//		@Param  VarCharHolder model;
+//		@Output VarCharHolder out;
+//		@Inject DrillBuf tempBuff;
+//		@Workspace WekaUpdatableClassifierHolder classifierAgg;
+//		@Workspace StringHolder function;
+//		@Workspace IntHolder aggregatable;
+//		@Workspace BitHolder firstRun;
+//
+//
+//
+//
+//		public void setup() {
+//			classifierAgg = new WekaUpdatableClassifierHolder();
+//			function = new StringHolder();
+//			aggregatable = new IntHolder();
+//			classifierAgg.classifier=null;
+//			function.value=null;
+//			aggregatable.value=-1;
+//			firstRun.value = 0;
+//
+//
+//		}
+//
+//		@Override
+//		public void add() {
+//			//			System.out.println("In WekaTrainAgg2Updateable add");
+//
+//
+//
+//
+//			byte[] classifierBuf = new byte[model.end - model.start];
+//			model.buffer.getBytes(model.start, classifierBuf, 0, model.end - model.start);
+//
+//
+//			String input = new String(classifierBuf, com.google.common.base.Charsets.UTF_8);
+//			System.out.println("In WekaTrainAgg2Updateable add In Model agg");
+//
+//			String classType = "numeric";
+//			String [] options = null;
+//
+//			if(firstRun.value == 0){
+//				firstRun.value = 1;
+//
+//				byte[] operationBuf = new byte[operation.end - operation.start];
+//				operation.buffer.getBytes(operation.start, operationBuf, 0, operation.end - operation.start);
+//				function.value = new String(operationBuf, com.google.common.base.Charsets.UTF_8).toLowerCase();
+//
+//				org.reflections.Reflections reflections = new org.reflections.Reflections("weka.classifiers"); 
+//				java.util.Set<Class<? extends weka.classifiers.Classifier>> subTypes = 
+//						reflections.getSubTypesOf(weka.classifiers.Classifier.class);
+//
+//				java.util.Iterator<Class<? extends weka.classifiers.Classifier>> subTypesIterator = subTypes.iterator();
+//				boolean done = false;
+//				while(subTypesIterator.hasNext() && !done){
+//					String className = subTypesIterator.next().toString().substring(6);
+//					//					System.out.println(className.substring(className.indexOf("weka")));
+//					try {
+//						Class c = Class.forName(className.substring(className.indexOf("weka")));
+//						if(((String)function.value).equalsIgnoreCase(c.getSimpleName())){
+//							function.value = c.getCanonicalName();
+//							done =true;
+//						}
+//					} catch (ClassNotFoundException e) {
+//						e.printStackTrace();
+//					}
+//
+//				}
+//
+//
+//				byte[] argsBuf = new byte[arguments.end - arguments.start];
+//				arguments.buffer.getBytes(arguments.start, argsBuf, 0, arguments.end - arguments.start);
+//
+//				try {
+//					options = weka.core.Utils.splitOptions((new String(argsBuf, com.google.common.base.Charsets.UTF_8)));
+//					for(int i=0;i<options.length;i++){
+//						if(options[i].indexOf("classes")>0){
+//							classType = options[i+1];
+//							options[i]="";
+//							options[i+1]="";
+//						}
+//					}
+//				} catch (Exception e1) {
+//					e1.printStackTrace();
+//				}
+//
+//
+//			}
+//			try{
+//				java.io.InputStream cis = new java.io.ByteArrayInputStream(classifierBuf);
+//				try {
+//					Class<?> c = Class.forName(function.value);
+//
+//					weka.classifiers.Classifier classifier = (weka.classifiers.Classifier) weka.core.SerializationHelper.read(cis);
+//
+//					//						System.out.println("In WekaTrainAgg2Updateable add MODEL read");
+//
+//					if(classifierAgg.classifier==null){
+//						System.out.println("In WekaEnsembleAgg2Updateable add MODEL new vote ");
+//
+//						classifierAgg.classifier = (weka.classifiers.Classifier) c.newInstance(); 
+//
+//						java.lang.reflect.Method m = c.getMethod("setOptions", String[].class);
+//						m.invoke(Class.forName(((String)function.value)).cast(classifierAgg.classifier), new Object[] {options});
+//						
+//					} 
+//
+//
+//					System.out.println("In WekaEnsembleAgg2Updateable add MODEL update");
+//					java.lang.reflect.Method m = c.getMethod("addPreBuiltClassifier", weka.classifiers.Classifier.class);
+//					m.invoke(Class.forName(((String)function.value)).cast(classifierAgg.classifier),classifier);
+//					System.out.println("In WekaEnsembleAgg21Updateable build MODEL done");
+//					
+//
+//				} catch (Exception e) {
+//					e.printStackTrace();
+//				}
+//			}catch(Exception e){
+//				e.printStackTrace();
+//			}
+//
+//
+//
+//		}
+//
+//		@Override
+//		public void output() {
+//			try {
+//
+//				System.out.println("In WekaEnsembleAgg2Updateable out writing agg model");
+//				java.io.ByteArrayOutputStream os = new java.io.ByteArrayOutputStream();
+//				weka.core.SerializationHelper.write(os, classifierAgg.classifier);
+//				tempBuff = tempBuff.reallocIfNeeded(os.toByteArray().length);
+//				out.buffer = tempBuff;
+//				out.buffer.setBytes(0, os.toByteArray());//.setBytes(0,outbuff);
+//				out.start=0;
+//				out.end=os.toByteArray().length;
+//			} catch (Exception e) {
+//				e.printStackTrace();
+//			}
+//
+//		}
+//		@Override
+//		public void reset() {
+//		}
+//
+//
+//	}
 
 
 
@@ -1359,7 +1547,7 @@ public class Weka {
 						//						((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).setOptions(options);
 						m = c.getMethod("buildClassifier", weka.core.Instances.class);
 						m.invoke(Class.forName(function.value).cast(classifier.classifier),instances);
-						System.out.println("In WekaTrainAgg1Updateable build MODEL done");
+//						System.out.println("In WekaTrainAgg1Updateable build MODEL done");
 
 						if(updatable.value != 1) {
 							if(instancesHolder.obj == null){
@@ -1378,10 +1566,10 @@ public class Weka {
 						if(updatable.value == 1) {
 							//					((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).updateClassifier(instances.instance(0));
 
-							System.out.println("In WekaTrainAgg1Updateable add MODEL updatable");
+//							System.out.println("In WekaTrainAgg1Updateable add MODEL updatable");
 							java.lang.reflect.Method m = c.getMethod("updateClassifier", weka.core.Instance.class);
 							m.invoke(Class.forName(function.value).cast(classifier.classifier),instances.instance(0));
-							System.out.println("In WekaTrainAgg1Updateable updatable MODEL updated");
+//							System.out.println("In WekaTrainAgg1Updateable updatable MODEL updated");
 							//							NaiveBayesUpdateable
 						} else {
 							//							ZeroR
@@ -1662,7 +1850,7 @@ public class Weka {
 						//						((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).setOptions(options);
 						m = c.getMethod("buildClassifier", weka.core.Instances.class);
 						m.invoke(Class.forName(function.value).cast(classifier.classifier),instances);
-						System.out.println("In WekaTrainAgg1Updateable build MODEL done");
+//						System.out.println("In WekaTrainAgg1Updateable build MODEL done");
 
 						if(updatable.value != 1) {
 							if(instancesHolder.obj == null){
@@ -1681,10 +1869,10 @@ public class Weka {
 						if(updatable.value == 1) {
 							//					((weka.classifiers.bayes.NaiveBayesUpdateable)classifier.classifier).updateClassifier(instances.instance(0));
 
-							System.out.println("In WekaTrainAgg1Updateable add MODEL updatable");
+//							System.out.println("In WekaTrainAgg1Updateable add MODEL updatable");
 							java.lang.reflect.Method m = c.getMethod("updateClassifier", weka.core.Instance.class);
 							m.invoke(Class.forName(function.value).cast(classifier.classifier),instances.instance(0));
-							System.out.println("In WekaTrainAgg1Updateable updatable MODEL updated");
+//							System.out.println("In WekaTrainAgg1Updateable updatable MODEL updated");
 							//							NaiveBayesUpdateable
 						} else {
 							//							ZeroR
@@ -2289,13 +2477,13 @@ public class Weka {
 	 * @author shadi
 	 * 
 	 * Create table xzy as 
-	 * select qdm_test_weka('nb','-classes {1,2}', mymodel.columns[0], mydata.columns[0],....) 
+	 * select qdm_score_weka('nb','-classes {1,2}', mymodel.columns[0], mydata.columns[0],....) 
 	 * from `output100M.csv` as mydata applying nb100M_3 as mymodel;
 	 *
 	 */
 
-	@FunctionTemplate(name = "qdm_test_weka", scope = FunctionScope.SIMPLE, nulls = NullHandling.INTERNAL)
-	public static class WekaTestUpdateable implements DrillSimpleFunc{
+	@FunctionTemplate(name = "qdm_score_weka", scope = FunctionScope.SIMPLE, nulls = NullHandling.INTERNAL)
+	public static class WekaScoreUpdateable implements DrillSimpleFunc{
 		@Param  VarCharHolder operation;
 		@Param  VarCharHolder arguments;
 		@Param 	NullableVarCharHolder classifierTxt;
@@ -2434,13 +2622,13 @@ public class Weka {
 	 * @author shadi
 	 * 
 	 * Create table xzy as 
-	 * select qdm_test_weka('nb','-classes {1,2}', mymodel.columns[0], mydata.columns) 
+	 * select qdm_score_weka('nb','-classes {1,2}', mymodel.columns[0], mydata.columns) 
 	 * from `output100M.csv` as mydata applying nb100M_3 as mymodel;
 	 *
 	 */
 
-	@FunctionTemplate(name = "qdm_test_weka", scope = FunctionScope.SIMPLE, nulls = NullHandling.INTERNAL)
-	public static class WekaTestRepeatedUpdateable implements DrillSimpleFunc{
+	@FunctionTemplate(name = "qdm_score_weka", scope = FunctionScope.SIMPLE, nulls = NullHandling.INTERNAL)
+	public static class WekaScoreRepeatedUpdateable implements DrillSimpleFunc{
 		@Param  VarCharHolder operation;
 		@Param  VarCharHolder arguments;
 		@Param 	NullableVarCharHolder classifierTxt;
