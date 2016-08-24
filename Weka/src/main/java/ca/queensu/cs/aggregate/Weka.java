@@ -814,7 +814,7 @@ public class Weka {
 				weka.core.Instances instances = new weka.core.Instances(new java.io.StringReader(((String)arffHeader.obj)+rowData));
 
 				instances.setClassIndex(instances.numAttributes() - 1);
-				System.out.println("num attributes = "+instances.numAttributes() + " - ClassIndex = "+instances.classIndex());
+//				System.out.println("num attributes = "+instances.numAttributes() + " - ClassIndex = "+instances.classIndex());
 
 				Class<?> c = Class.forName(((String)function.obj));
 
@@ -895,8 +895,6 @@ public class Weka {
 									//										System.out.println("Aggregation instance class index is:"+((weka.core.Instances)instancesHolder.obj).classIndex());
 
 									try{
-										Logistic x = new Logistic();
-										x.aggregate(x);
 										m = c.getMethod("aggregate",c);
 										m.invoke(Class.forName((String)function.obj).cast(classifier.obj),Class.forName((String)function.obj).cast(newClassifier));
 										//									System.out.println("In WekaTrainAgg2Updateable add MODEL aggregated");
